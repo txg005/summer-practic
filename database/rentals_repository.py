@@ -1,0 +1,137 @@
+from typing import List, Optional
+
+from .models import Rental, RentalView
+
+
+class RentalsRepository:
+    """Доступ к таблице rentals и связанным отчётным запросам"""
+
+    def __init__(self, db):
+        self.db = db
+
+    def get_all_with_details(self) -> List[RentalView]:
+        self.db.cursor.execute('''
+            SELECT r.id, c.brand || ' ' || c.model || ' (' || c.license_plate || ')',
+                   cl.full_name, r.start_date, r.end_date, r.total_cost, r.status
+            FROM rentals r
+            JOIN cars c ON r.car_id = c.id
+            JOIN clients cl ON r.client_id = cl.id
+            ORDER BY r.id
+        ''')
+        return [RentalView(*row) for row in self.db.cursor.fetchall()]
+
+    def get_by_id(self, rental_id: int) -> Optional[Rental]:
+        self.db.cursor.execute('SELECT * FROM rentals WHERE id=?', (rental_id,))
+        row = self.db.cursor.fetchone()
+        return Rental(*row) if row else None
+
+    def insert(self, rental: Rental) -> int:
+        self.db.cursor.execute('''
+            INSERT INTO rentals (car_id, client_id, start_date, end_date, total_cost, status)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (rental.car_id, rental.client_id, rental.start_date,
+              rental.end_date, rental.total_cost, rental.status))
+        self.db.conn.commit()
+        return self.db.cursor.lastrowid
+
+    def update_status(self, rental_id: int, status: str) -> None:
+        self.db.cursor.execute('UPDATE rentals SET status=? WHERE id=?', (status, rental_id))
+        self.db.conn.commit()
+
+    def search(self, start_date: str = '', end_date: str = '') -> List[RentalView]:
+        query = '''
+            SELECT r.id, c.brand || ' ' || c.model || ' (' || c.license_plate || ')',
+                cl.full_name, r.start_date, r.end_date, r.total_cost, r.status
+            FROM rentals r
+            JOIN cars c ON r.car_id = c.id
+            JOIN clients cl ON r.client_id = cl.id
+            WHERE 1=1
+        '''
+        params = []
+
+        # Диапазон дат начала
+        if start_date:
+            if '-' in start_date and len(start_date.split('-')) == 3:  # Полная дата
+                query += ' AND r.start_date >= ?'
+                params.append(start_date)
+            else:  # Поиск по части даты
+                query += ' AND r.start_date LIKE ?'
+                params.append(f'%{start_date}%')
+
+        if end_date:
+            if '-' in end_date and len(end_date.split('-')) == 3:  # Полная дата
+                query += ' AND r.end_date <= ?'
+                params.append(end_date)
+            else:  # Поиск по части даты
+                query += ' AND r.end_date LIKE ?'
+                params.append(f'%{end_date}%')
+
+        self.db.cursor.execute(query, params)
+        return [RentalView(*row) for row in self.db.cursor.fetchall()]
+
+
+    # --- Запросы для вкладки "Отчёты" ---
+
+    def get_income_summary(self, start_date: str, end_date: str):
+        self.db.cursor.execute('''
+            SELECT COUNT(*), SUM(total_cost)
+            FROM rentals
+            WHERE start_date >= ? AND start_date <= ? AND status != 'отменена'
+        ''', (start_date, end_date))
+        total_rentals, total_income = self.db.cursor.fetchone()
+        return total_rentals, (total_income or 0)
+
+    def get_income_by_car(self, start_date: str, end_date: str):
+        self.db.cursor.execute('''
+            SELECT c.brand, c.model, c.license_plate, COUNT(r.id), SUM(r.total_cost)
+            FROM cars c
+            LEFT JOIN rentals r ON c.id = r.car_id
+                AND r.start_date >= ? AND r.start_date <= ? AND r.status != 'отменена'
+            GROUP BY c.id
+            ORDER BY SUM(r.total_cost) DESC
+        ''', (start_date, end_date))
+        return self.db.cursor.fetchall()
+
+    def get_income_by_month(self, start_date: str, end_date: str):
+        self.db.cursor.execute('''
+            SELECT strftime('%Y-%m', start_date) as month, COUNT(*), SUM(total_cost)
+            FROM rentals
+            WHERE start_date >= ? AND start_date <= ? AND status != 'отменена'
+            GROUP BY strftime('%Y-%m', start_date)
+            ORDER BY month
+        ''', (start_date, end_date))
+        return self.db.cursor.fetchall()
+
+    def get_active_rentals(self):
+        self.db.cursor.execute('''
+            SELECT c.brand, c.model, cl.full_name, r.start_date, r.end_date
+            FROM rentals r
+            JOIN cars c ON r.car_id = c.id
+            JOIN clients cl ON r.client_id = cl.id
+            WHERE r.status = 'активная'
+            ORDER BY r.end_date
+        ''')
+        return self.db.cursor.fetchall()
+
+    def get_overdue_rentals(self, today: str):
+        self.db.cursor.execute('''
+            SELECT c.brand, c.model, cl.full_name, cl.phone, r.end_date
+            FROM rentals r
+            JOIN cars c ON r.car_id = c.id
+            JOIN clients cl ON r.client_id = cl.id
+            WHERE r.status = 'активная' AND r.end_date < ?
+            ORDER BY r.end_date
+        ''', (today,))
+        return self.db.cursor.fetchall()
+
+    def get_export_data(self, start_date: str, end_date: str):
+        self.db.cursor.execute('''
+            SELECT r.id, c.brand, c.model, c.license_plate, cl.full_name,
+                cl.phone, r.start_date, r.end_date, r.total_cost, r.status
+            FROM rentals r
+            JOIN cars c ON r.car_id = c.id
+            JOIN clients cl ON r.client_id = cl.id
+            WHERE r.start_date >= ? AND r.start_date <= ?
+            ORDER BY r.id
+        ''', (start_date, end_date))
+        return self.db.cursor.fetchall()

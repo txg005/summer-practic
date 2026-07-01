@@ -1,0 +1,51 @@
+def populate_sample_data(db) -> None:
+    """Добавление тестовых данных"""
+    db.cursor.execute("SELECT COUNT(*) FROM cars")
+    if db.cursor.fetchone()[0] != 0:
+        return
+
+    cars_data = [
+        ('Toyota', 'Camry', 2020, '1204 AB-7', 140.0, 'доступен', '2025-01-15'),
+        ('BMW', 'X5', 2019, '5678 CK-7', 220.0, 'арендован', '2025-02-20'),
+        ('Audi', 'A4', 2021, '9012 TP-7', 190.0, 'арендован', '2025-03-10'),
+        ('Mercedes', 'C-Class', 2018, '3456 AX-7', 450.0, 'доступен', '2024-12-22'),
+        ('Volkswagen', 'Passat', 2022, '7890 AC-7', 130.0, 'на ТО', '2024-06-15'),
+        ('Lixiang', 'L9', 2024, 'E303AA-7', 580.0, 'арендован', '2025-04-11'),
+        ('Zeekr', '007', 2024, 'E204AA-7', 350.0, 'доступен', '2025-06-01'),
+        ('Tesla', 'Model 3', 2023, 'E001AB-7', 300.0, 'арендован', '2025-05-10'),
+    ]
+    db.cursor.executemany('''
+        INSERT INTO cars (brand, model, year, license_plate, daily_rate, status, last_maintenance)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', cars_data)
+
+    clients_data = [
+        ('Волынская Алиса Денисовна', '5JK 789012', '+375 29 581-27-93', 'volynskaya.ad@mailbox.org'),
+        ('Кирьянов Макар Олегович', '7NM 345678', '+375 44 239-65-18', 'm.kiryanov@gmail.com'),
+        ('Штефанюк Елизавета Романовна', '8PQ 901234', '+375 33 715-48-26', 'lizashtefan@yandex.ru'),
+        ('Якубович Артём Валерьевич', '9RS 567890', '+375 25 894-12-37', 'yakubovich_av@gmail.com'),
+        ('Гареева Амина Фаридовна', '2TV 123789', '+375 29 346-59-01', 'gareeva1995@rambler.ru'),
+        ('Дроздович Никита Игоревич', '4WX 456123', '+375 44 672-93-45', 'drozdov.nik@fastmail.com'),
+        ('Цыбулько Вера Константиновна', '6YZ 890456', '+375 33 281-64-79', 'vera.tsibulko@gmail.com'),
+    ]
+    db.cursor.executemany('''
+        INSERT INTO clients (full_name, driver_license, phone, email)
+        VALUES (?, ?, ?, ?)
+    ''', clients_data)
+
+    rentals_data = [
+        (3, 1, '2025-06-13', '2025-06-25', 2280.0, 'активная'),
+        (1, 2, '2025-06-01', '2025-06-05', 560.0, 'завершенная'),
+        (2, 3, '2025-05-15', '2025-05-20', 1100.0, 'завершенная'),
+        (7, 5, '2025-05-28', '2025-05-30', 700.0, 'завершенная'),
+        (8, 6, '2025-06-16', '2025-06-19', 900.0, 'активная'),
+        (2, 4, '2025-05-23', '2025-05-26', 660.0, 'завершенная'),
+        (2, 2, '2025-06-11', '2025-06-14', 660.0, 'активная'),
+        (6, 3, '2025-06-17', '2025-06-19', 1160.0, 'активная'),
+    ]
+    db.cursor.executemany('''
+        INSERT INTO rentals (car_id, client_id, start_date, end_date, total_cost, status)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', rentals_data)
+
+    db.conn.commit()
