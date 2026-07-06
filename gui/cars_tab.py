@@ -55,9 +55,14 @@ class CarsTab:
         self.car_status.grid(row=2, column=3, padx=5, pady=5)
         self.car_status.set('доступен')
 
+        ttk.Label(form_frame, text="Последнее ТО:").grid(row=3, column=0, sticky='w', padx=5, pady=5)
+        self.car_last_maintenance = ttk.Entry(form_frame, width=20)
+        self.car_last_maintenance.grid(row=3, column=1, padx=5, pady=5)
+        self.car_last_maintenance.insert(0, datetime.now().strftime('%Y-%m-%d'))
+
         # Кнопки
         buttons_frame = ttk.Frame(form_frame)
-        buttons_frame.grid(row=3, column=0, columnspan=4, pady=10)
+        buttons_frame.grid(row=4, column=0, columnspan=4, pady=10)
 
         ttk.Button(buttons_frame, text="Добавить", command=self.add_car).pack(side='left', padx=5)
         ttk.Button(buttons_frame, text="Обновить", command=self.update_car).pack(side='left', padx=5)
@@ -100,6 +105,7 @@ class CarsTab:
             license_plate = self.car_license.get().strip()
             daily_rate = float(self.car_rate.get())
             status = self.car_status.get()
+            last_maintenance = self.car_last_maintenance.get().strip() or datetime.now().strftime('%Y-%m-%d')
 
             # Валидация
             if not all([brand, model, year, license_plate, daily_rate]):
@@ -120,7 +126,7 @@ class CarsTab:
 
             car = Car(brand=brand, model=model, year=year, license_plate=license_plate,
                       daily_rate=daily_rate, status=status,
-                      last_maintenance=datetime.now().strftime('%Y-%m-%d'))
+                      last_maintenance=last_maintenance)
             self.cars_repo.insert(car)
 
             self.load_cars()
@@ -150,6 +156,7 @@ class CarsTab:
             license_plate = self.car_license.get().strip()
             daily_rate = float(self.car_rate.get())
             status = self.car_status.get()
+            last_maintenance = self.car_last_maintenance.get().strip()
 
             # Валидация
             if not all([brand, model, year, license_plate, daily_rate]):
@@ -161,7 +168,7 @@ class CarsTab:
                 return
 
             car = Car(id=car_id, brand=brand, model=model, year=year,
-                      license_plate=license_plate, daily_rate=daily_rate, status=status)
+                      license_plate=license_plate, daily_rate=daily_rate, status=status, last_maintenance=last_maintenance)
             self.cars_repo.update(car)
 
             self.load_cars()
@@ -217,6 +224,8 @@ class CarsTab:
         self.car_license.delete(0, tk.END)
         self.car_rate.delete(0, tk.END)
         self.car_status.set('доступен')
+        self.car_last_maintenance.delete(0, tk.END)
+        self.car_last_maintenance.insert(0, datetime.now().strftime('%Y-%m-%d'))
 
     def on_car_select(self, event):
         """Обработка выбора автомобиля"""
@@ -234,6 +243,8 @@ class CarsTab:
             self.car_rate.delete(0, tk.END)
             self.car_rate.insert(0, values[5])
             self.car_status.set(values[6])
+            self.car_last_maintenance.delete(0, tk.END)
+            self.car_last_maintenance.insert(0, values[7] if values[7] else datetime.now().strftime('%Y-%m-%d'))
 
     def sort_cars_tree(self, col):
         """Сортировка таблицы автомобилей с реверсом"""
