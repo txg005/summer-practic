@@ -7,6 +7,7 @@ from database import (
 from gui.cars_tab import CarsTab
 from gui.clients_tab import ClientsTab
 from gui.rentals_tab import RentalsTab
+from gui.reports_tab import ReportsTab
 
 
 class MainWindow:
@@ -41,6 +42,7 @@ class MainWindow:
             notebook, self.rentals_repo, self.cars_repo, self.clients_repo,
             on_rental_changed=lambda: self.cars_tab.load_cars()
         )
+        self.reports_tab = ReportsTab(notebook, self.rentals_repo)
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
