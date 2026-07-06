@@ -167,6 +167,14 @@ class CarsTab:
                 messagebox.showerror("Ошибка", "Неверный формат номера автомобиля! Пример: 1234 AB-7")
                 return
 
+            if year < 1900 or year > datetime.now().year + 1:
+                messagebox.showerror("Ошибка", "Неверный год выпуска!")
+                return
+
+            if daily_rate <= 0:
+                messagebox.showerror("Ошибка", "Цена аренды должна быть больше 0!")
+                return
+
             car = Car(id=car_id, brand=brand, model=model, year=year,
                       license_plate=license_plate, daily_rate=daily_rate, status=status, last_maintenance=last_maintenance)
             self.cars_repo.update(car)
