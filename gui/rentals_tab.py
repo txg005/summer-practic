@@ -169,6 +169,11 @@ class RentalsTab:
             if car.status != 'доступен':
                 messagebox.showerror("Ошибка", "Автомобиль недоступен для аренды!")
                 return
+            
+            # Проверяем дату начала аренды
+            if self.rental_start.get() < datetime.now().strftime('%Y-%m-%d'):
+                messagebox.showerror("Ошибка", "Дата начала не может быть раньше сегодняшнего дня!")
+                return
 
             # Создаем аренду
             rental = Rental(
