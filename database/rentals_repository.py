@@ -34,6 +34,14 @@ class RentalsRepository:
         self.db.conn.commit()
         return self.db.cursor.lastrowid
 
+    def update(self, rental: Rental) -> None:
+        self.db.cursor.execute('''
+            UPDATE rentals SET car_id=?, client_id=?, start_date=?, end_date=?, total_cost=?, status=?
+            WHERE id=?
+        ''', (rental.car_id, rental.client_id, rental.start_date, rental.end_date,
+            rental.total_cost, rental.status, rental.id))
+        self.db.conn.commit()
+
     def update_status(self, rental_id: int, status: str) -> None:
         self.db.cursor.execute('UPDATE rentals SET status=? WHERE id=?', (status, rental_id))
         self.db.conn.commit()

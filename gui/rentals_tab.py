@@ -64,6 +64,7 @@ class RentalsTab:
         buttons_frame.grid(row=3, column=0, columnspan=4, pady=10)
 
         ttk.Button(buttons_frame, text="Создать аренду", command=self.add_rental).pack(side='left', padx=5)
+        ttk.Button(buttons_frame, text="Обновить аренду", command=self.update_rental).pack(side='left', padx=5)
         ttk.Button(buttons_frame, text="Завершить аренду", command=self.complete_rental).pack(side='left', padx=5)
         ttk.Button(buttons_frame, text="Отменить аренду", command=self.cancel_rental).pack(side='left', padx=5)
         ttk.Button(buttons_frame, text="Очистить", command=self.clear_rental_form).pack(side='left', padx=5)
@@ -195,6 +196,40 @@ class RentalsTab:
         except Exception as e:
             messagebox.showerror("Ошибка", f"Ошибка при создании аренды: {str(e)}")
 
+    def update_rental(self):
+        selected = self.rentals_tree.selection()
+        if not selected:
+            messagebox.showwarning("Предупреждение", "Выберите аренду для обновления!")
+            return
+        try:
+            rental_id = self.rentals_tree.item(selected[0])['values'][0]
+            old_rental = self.rentals_repo.get_by_id(rental_id)
+            car_text = self.rental_car.get()
+            client_text = self.rental_client.get()
+            if not car_text or not client_text:
+                messagebox.showerror("Ошибка", "Выберите автомобиль и клиента!")
+                return
+            new_car_id = int(car_text.split(' - ')[0])
+            new_client_id = int(client_text.split(' - ')[0])
+            rental = Rental(
+                id=rental_id, car_id=new_car_id, client_id=new_client_id,
+                start_date=self.rental_start.get(), end_date=self.rental_end.get(),
+                total_cost=float(self.rental_cost.get()), status=old_rental.status
+            )
+            self.rentals_repo.update(rental)
+            if old_rental.car_id != new_car_id:
+                self.cars_repo.update_status(old_rental.car_id, 'доступен')
+                if old_rental.status == 'активная':
+                    self.cars_repo.update_status(new_car_id, 'арендован')
+            self.load_rentals()
+            self.load_rental_combos()
+            self.on_rental_changed()
+            messagebox.showinfo("Успех", "Аренда обновлена!")
+        except ValueError:
+            messagebox.showerror("Ошибка", "Проверьте правильность ввода данных!")
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка при обновлении аренды: {str(e)}")
+
     def complete_rental(self):
         """Завершение аренды"""
         selected = self.rentals_tree.selection()
@@ -251,7 +286,23 @@ class RentalsTab:
 
     def _on_rental_select(self, event):
         """Обработка выбора аренды"""
-        pass  # Дополнительная функциональность при необходимости
+        selected = self.rentals_tree.selection()
+        if not selected:
+            return
+        rental_id = self.rentals_tree.item(selected[0])['values'][0]
+        rental = self.rentals_repo.get_by_id(rental_id)
+        if not rental:
+            return
+        car = self.cars_repo.get_by_id(rental.car_id)
+        client = self.clients_repo.get_by_id(rental.client_id)
+        self.rental_car.set(f"{car.id} - {car.brand} {car.model} ({car.license_plate})" if car else '')
+        self.rental_client.set(f"{client.id} - {client.full_name}" if client else '')
+        self.rental_start.delete(0, tk.END)
+        self.rental_start.insert(0, rental.start_date)
+        self.rental_end.delete(0, tk.END)
+        self.rental_end.insert(0, rental.end_date)
+        self.rental_cost.delete(0, tk.END)
+        self.rental_cost.insert(0, f"{rental.total_cost:.2f}")
 
     def sort_rentals_tree(self, col):
         """Сортировка таблицы аренды с реверсом"""
