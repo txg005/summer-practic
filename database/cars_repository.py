@@ -116,3 +116,10 @@ class CarsRepository:
             (LOWER(brand || ' ' || model || ' ' || license_plate) LIKE ?)
         ''', (f'%{text.lower()}%',))
         return [Car(*row) for row in self.db.cursor.fetchall()]
+    
+    def filter_all(self, text: str) -> List[Car]:
+        self.db.cursor.execute('''
+            SELECT * FROM cars
+            WHERE LOWER(brand || ' ' || model || ' ' || license_plate) LIKE ?
+        ''', (f'%{text.lower()}%',))
+        return [Car(*row) for row in self.db.cursor.fetchall()]

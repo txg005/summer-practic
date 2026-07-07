@@ -94,7 +94,7 @@ class RentalsTab:
 
     def load_rental_combos(self):
         """Загрузка данных для комбобоксов"""
-        cars = self.cars_repo.get_available()
+        cars = self.cars_repo.get_all()
         self.rental_car['values'] = [f"{c.id} - {c.brand} {c.model} ({c.license_plate})" for c in cars]
 
         clients = self.clients_repo.get_all()
@@ -106,7 +106,7 @@ class RentalsTab:
         if len(typed) < 2:
             self.load_rental_combos()
             return
-        cars = self.cars_repo.filter_available(typed)
+        cars = self.cars_repo.filter_all(typed)
         self.rental_car['values'] = [f"{c.id} - {c.brand} {c.model} ({c.license_plate})" for c in cars]
 
     def _filter_clients(self, event):
