@@ -33,10 +33,10 @@ class CarsRepository:
 
     def update(self, car: Car) -> None:
         self.db.cursor.execute('''
-            UPDATE cars SET brand=?, model=?, year=?, license_plate=?, daily_rate=?, status=?
+            UPDATE cars SET brand=?, model=?, year=?, license_plate=?, daily_rate=?, status=?, last_maintenance=?
             WHERE id=?
         ''', (car.brand, car.model, car.year, car.license_plate,
-              car.daily_rate, car.status, car.id))
+              car.daily_rate, car.status, car.last_maintenance, car.id))
         self.db.conn.commit()
 
     def delete(self, car_id: int) -> None:
