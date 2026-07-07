@@ -69,7 +69,7 @@ class CarsRepository:
         if license_plate:
             query += ' AND license_plate LIKE ?'
             params.append(f'%{license_plate}%')
-        if status:
+        if status and status != 'все':
             query += ' AND status = ?'
             params.append(status)
 

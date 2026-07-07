@@ -51,7 +51,7 @@ class CarsTab:
         self.car_rate.grid(row=2, column=1, padx=5, pady=5)
 
         ttk.Label(form_frame, text="Статус:").grid(row=2, column=2, sticky='w', padx=5, pady=5)
-        self.car_status = ttk.Combobox(form_frame, values=['доступен', 'арендован', 'на ТО'], width=17)
+        self.car_status = ttk.Combobox(form_frame, values=['все', 'доступен', 'арендован', 'на ТО'], width=17)
         self.car_status.grid(row=2, column=3, padx=5, pady=5)
         self.car_status.set('доступен')
 
