@@ -242,7 +242,6 @@ class ClientsTab:
 
     def reset_clients_search(self):
         """Сброс поиска клиентов"""
-        self.clear_client_form()
         self.load_clients()
         for c in self.clients_tree['columns']:
             text = self.clients_tree.heading(c, 'text').replace(' ▲', '').replace(' ▼', '')

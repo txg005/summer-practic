@@ -305,7 +305,6 @@ class CarsTab:
 
     def reset_cars_search(self):
         """Сброс поиска автомобилей"""
-        self.clear_car_form()
         self.load_cars()
         for c in self.cars_tree['columns']:
             text = self.cars_tree.heading(c, 'text')

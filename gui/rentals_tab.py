@@ -302,7 +302,6 @@ class RentalsTab:
 
     def reset_rentals_search(self):
         """Сброс поиска аренды"""
-        self.clear_rental_form()
         self.load_rentals()
         for c in self.rentals_tree['columns']:
             text = self.rentals_tree.heading(c, 'text').replace(' ▲', '').replace(' ▼', '')
