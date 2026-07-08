@@ -44,6 +44,8 @@ class ClientsTab:
         ttk.Label(form_frame, text="Email:").grid(row=1, column=2, sticky='w', padx=5, pady=5)
         self.client_email = ttk.Entry(form_frame, width=20)
         self.client_email.grid(row=1, column=3, padx=5, pady=5)
+        self.client_phone.bind('<FocusIn>', self._on_phone_focus_in)
+        self.client_phone.bind('<KeyRelease>', self._format_phone)
 
         # Кнопки
         buttons_frame = ttk.Frame(form_frame)
@@ -253,3 +255,24 @@ class ClientsTab:
             self.clients_tree.delete(item)
         for client in self.clients_repo.get_all():
             self.clients_tree.insert('', 'end', values=astuple(client))
+
+    def _on_phone_focus_in(self, event):
+        if not self.client_phone.get():
+            self.client_phone.insert(0, '+375 ')
+
+    def _format_phone(self, event):
+        if event.keysym in ('Tab', 'Return', 'Escape', 'Left', 'Right',
+                            'Home', 'End', 'Shift_L', 'Shift_R', 'Control_L', 'Control_R'):
+            return
+        digits = ''.join(c for c in self.client_phone.get() if c.isdigit())
+        if digits.startswith('375'):
+            digits = digits[3:]
+        digits = digits[:9]
+        result = '+375'
+        if digits:        result += ' ' + digits[:2]
+        if len(digits) > 2: result += ' ' + digits[2:5]
+        if len(digits) > 5: result += '-' + digits[5:7]
+        if len(digits) > 7: result += '-' + digits[7:9]
+        self.client_phone.delete(0, tk.END)
+        self.client_phone.insert(0, result)
+        self.client_phone.icursor(len(result))
