@@ -41,9 +41,6 @@ class ClientsRepository:
         query = 'SELECT * FROM clients WHERE 1=1'
         params = []
 
-        if name:
-            query += ' AND full_name LIKE ?'
-            params.append(f'%{name}%')
         if license_num:
             query += ' AND driver_license LIKE ?'
             params.append(f'%{license_num}%')
@@ -55,12 +52,14 @@ class ClientsRepository:
             params.append(f'%{email}%')
 
         self.db.cursor.execute(query, params)
-        return [Client(*row) for row in self.db.cursor.fetchall()]
+        results = [Client(*row) for row in self.db.cursor.fetchall()]
+
+        if name:
+            results = [c for c in results if name.lower() in c.full_name.lower()]
+        return results
 
     def filter_by_name(self, text: str) -> List[Client]:
         """Используется для автодополнения в комбобоксе аренды"""
-        self.db.cursor.execute(
-            'SELECT * FROM clients WHERE LOWER(full_name) LIKE ?',
-            (f'%{text.lower()}%',)
-        )
-        return [Client(*row) for row in self.db.cursor.fetchall()]
+        self.db.cursor.execute('SELECT * FROM clients')
+        all_clients = [Client(*row) for row in self.db.cursor.fetchall()]
+        return [c for c in all_clients if text.lower() in c.full_name.lower()]
