@@ -166,24 +166,33 @@ class RentalsTab:
             client_id = int(client_text.split(' - ')[0])
 
             # Проверяем доступность автомобиля
-            car = self.cars_repo.get_by_id(car_id)
-            if car.status != 'доступен':
-                messagebox.showerror("Ошибка", "Автомобиль недоступен для аренды!")
-                return
-            
-            # Проверяем дату начала аренды
-            if self.rental_start.get() < datetime.now().strftime('%Y-%m-%d'):
+            today = datetime.now().strftime('%Y-%m-%d')
+            start_date = self.rental_start.get()
+
+            if start_date < today:
                 messagebox.showerror("Ошибка", "Дата начала не может быть раньше сегодняшнего дня!")
                 return
 
-            # Создаем аренду
+            is_future = start_date > today
+            car = self.cars_repo.get_by_id(car_id)
+
+            if not is_future and car.status != 'доступен':
+                messagebox.showerror("Ошибка", "Автомобиль недоступен для аренды!")
+                return
+
+            if self.rentals_repo.has_date_conflict(car_id, start_date, self.rental_end.get()):
+                messagebox.showerror("Ошибка", "На эти даты автомобиль уже арендован или забронирован!")
+                return
+
             rental = Rental(
                 car_id=car_id, client_id=client_id,
-                start_date=self.rental_start.get(), end_date=self.rental_end.get(),
-                total_cost=float(self.rental_cost.get()), status='активная'
+                start_date=start_date, end_date=self.rental_end.get(),
+                total_cost=float(self.rental_cost.get()),
+                status='забронировано' if is_future else 'активная'
             )
             self.rentals_repo.insert(rental)
-            self.cars_repo.update_status(car_id, 'арендован')
+            if not is_future:
+                self.cars_repo.update_status(car_id, 'арендован')
 
             self.load_rentals()
             self.load_rental_combos()
@@ -216,6 +225,11 @@ class RentalsTab:
                 start_date=self.rental_start.get(), end_date=self.rental_end.get(),
                 total_cost=float(self.rental_cost.get()), status=old_rental.status
             )
+            if self.rentals_repo.has_date_conflict(
+                    new_car_id, self.rental_start.get(), self.rental_end.get(),
+                    exclude_rental_id=rental_id):
+                messagebox.showerror("Ошибка", "На эти даты автомобиль уже арендован или забронирован!")
+                return
             self.rentals_repo.update(rental)
             if old_rental.car_id != new_car_id:
                 self.cars_repo.update_status(old_rental.car_id, 'доступен')

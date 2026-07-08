@@ -77,6 +77,34 @@ class RentalsRepository:
         self.db.cursor.execute(query, params)
         return [RentalView(*row) for row in self.db.cursor.fetchall()]
 
+    def has_date_conflict(self, car_id: int, start_date: str, end_date: str,
+                        exclude_rental_id: int = None) -> bool:
+        """Проверка пересечения дат для данного автомобиля"""
+        query = '''
+            SELECT COUNT(*) FROM rentals
+            WHERE car_id = ? AND status IN ('активная', 'забронировано')
+            AND start_date < ? AND end_date > ?
+        '''
+        params = [car_id, end_date, start_date]
+        if exclude_rental_id:
+            query += ' AND id != ?'
+            params.append(exclude_rental_id)
+        self.db.cursor.execute(query, params)
+        return self.db.cursor.fetchone()[0] > 0
+
+    def activate_due_bookings(self, today: str) -> None:
+        """Переводит забронированные аренды в активные, если дата начала наступила"""
+        self.db.cursor.execute('''
+            SELECT id, car_id FROM rentals
+            WHERE status = 'забронировано' AND start_date <= ?
+        ''', (today,))
+        due = self.db.cursor.fetchall()
+        for rental_id, car_id in due:
+            self.db.cursor.execute('UPDATE rentals SET status="активная" WHERE id=?', (rental_id,))
+            self.db.cursor.execute('UPDATE cars SET status="арендован" WHERE id=?', (car_id,))
+        if due:
+            self.db.conn.commit()
+
 
     # --- Запросы для вкладки "Отчёты" ---
 

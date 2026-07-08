@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+from datetime import datetime
 
 from database import (
     Database, CarsRepository, ClientsRepository, RentalsRepository, populate_sample_data
@@ -26,6 +27,7 @@ class MainWindow:
         self.cars_repo = CarsRepository(db)
         self.clients_repo = ClientsRepository(db)
         self.rentals_repo = RentalsRepository(db)
+        self.rentals_repo.activate_due_bookings(datetime.now().strftime('%Y-%m-%d'))
 
         notebook = ttk.Notebook(self.root)
         notebook.pack(fill='both', expand=True, padx=10, pady=10)
