@@ -108,17 +108,18 @@ class ReportsTab:
         try:
             from openpyxl import Workbook
 
-            filename = filedialog.asksaveasfilename(
-                defaultextension=".xlsx",
-                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")]
-            )
-            if not filename:
-                return
-
             # Получаем данные
             start_date = self.report_start.get()
             end_date = self.report_end.get()
             data = self.rentals_repo.get_export_data(start_date, end_date)
+
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+                initialfile=f"отчёт по доходам с {start_date} по {end_date}"
+            )
+            if not filename:
+                return
 
             # Создаём Excel-файл
             wb = Workbook()
