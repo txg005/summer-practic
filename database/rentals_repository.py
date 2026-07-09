@@ -46,7 +46,8 @@ class RentalsRepository:
         self.db.cursor.execute('UPDATE rentals SET status=? WHERE id=?', (status, rental_id))
         self.db.conn.commit()
 
-    def search(self, start_date: str = '', end_date: str = '') -> List[RentalView]:
+    def search(self, start_date: str = '', end_date: str = '',
+            car_text: str = '', client_text: str = '', cost: str = '') -> List[RentalView]:
         query = '''
             SELECT r.id, c.brand || ' ' || c.model || ' (' || c.license_plate || ')',
                 cl.full_name, r.start_date, r.end_date, r.total_cost, r.status
@@ -73,6 +74,27 @@ class RentalsRepository:
             else:  # Поиск по части даты
                 query += ' AND r.end_date LIKE ?'
                 params.append(f'%{end_date}%')
+
+        if car_text:
+            query += " AND LOWER(c.brand || ' ' || c.model || ' (' || c.license_plate || ')') LIKE LOWER(?)"
+            params.append(f'%{car_text}%')
+        if client_text:
+            query += ' AND LOWER(cl.full_name) LIKE LOWER(?)'
+            params.append(f'%{client_text}%')
+        if cost:
+            if '-' in cost:
+                lo, hi = cost.split('-', 1)
+                query += ' AND r.total_cost BETWEEN ? AND ?'
+                params.extend([float(lo), float(hi)])
+            elif cost.startswith('>'):
+                query += ' AND r.total_cost > ?'
+                params.append(float(cost[1:]))
+            elif cost.startswith('<'):
+                query += ' AND r.total_cost < ?'
+                params.append(float(cost[1:]))
+            else:
+                query += ' AND r.total_cost = ?'
+                params.append(float(cost))
 
         self.db.cursor.execute(query, params)
         return [RentalView(*row) for row in self.db.cursor.fetchall()]

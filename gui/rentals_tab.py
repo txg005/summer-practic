@@ -355,17 +355,26 @@ class RentalsTab:
             self.rentals_tree.heading(c, text=text)
 
     def search_rentals(self):
-        """Поиск аренды"""
         start_date = self.rental_start.get().strip()
         end_date = self.rental_end.get().strip()
 
+        car_raw = self.rental_car.get().strip()
+        car_search = car_raw.split(' - ', 1)[1] if ' - ' in car_raw else car_raw
+
+        client_raw = self.rental_client.get().strip()
+        client_search = client_raw.split(' - ', 1)[1] if ' - ' in client_raw else client_raw
+
+        cost = self.rental_cost.get().strip()
+
         try:
-            rentals = self.rentals_repo.search(start_date=start_date, end_date=end_date)
+            rentals = self.rentals_repo.search(
+                start_date=start_date, end_date=end_date,
+                car_text=car_search, client_text=client_search, cost=cost
+            )
             for item in self.rentals_tree.get_children():
                 self.rentals_tree.delete(item)
             for rental in rentals:
                 self.rentals_tree.insert('', 'end', values=astuple(rental))
-
         except Exception as e:
             messagebox.showerror("Ошибка", f"Ошибка поиска: {str(e)}")
             self.load_rentals()
