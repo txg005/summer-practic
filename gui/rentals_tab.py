@@ -3,6 +3,7 @@ from dataclasses import astuple
 from datetime import datetime
 from tkinter import ttk, messagebox
 from typing import Callable
+from tkcalendar import DateEntry
 
 from database import Rental, CarsRepository, ClientsRepository, RentalsRepository
 
@@ -44,13 +45,17 @@ class RentalsTab:
         self.rental_client.bind('<KeyRelease>', self._filter_clients)
 
         ttk.Label(form_frame, text="Дата начала:").grid(row=1, column=0, sticky='w', padx=5, pady=5)
-        self.rental_start = ttk.Entry(form_frame, width=25)
-        self.rental_start.grid(row=1, column=1, padx=5, pady=5)
-        self.rental_start.insert(0, datetime.now().strftime('%Y-%m-%d'))
+        start_frame = ttk.Frame(form_frame)
+        start_frame.grid(row=1, column=1, padx=5, pady=5)
+        self.rental_start_date = DateEntry(start_frame, width=12, date_pattern='yyyy-mm-dd')
+        self.rental_start_date.pack(side='left')
+        self.rental_start_time = ttk.Combobox(start_frame, values=[f'{h:02d}:00' for h in range(24)], width=6)
+        self.rental_start_time.pack(side='left', padx=(5, 0))
+        self.rental_start_time.set('10:00')
 
         ttk.Label(form_frame, text="Дата окончания:").grid(row=1, column=2, sticky='w', padx=5, pady=5)
-        self.rental_end = ttk.Entry(form_frame, width=25)
-        self.rental_end.grid(row=1, column=3, padx=5, pady=5)
+        self.rental_end_date = DateEntry(form_frame, width=12, date_pattern='yyyy-mm-dd')
+        self.rental_end_date.grid(row=1, column=3, padx=5, pady=5)
 
         ttk.Label(form_frame, text="Стоимость:").grid(row=2, column=0, sticky='w', padx=5, pady=5)
         self.rental_cost = ttk.Entry(form_frame, width=25)
@@ -129,8 +134,8 @@ class RentalsTab:
                 messagebox.showwarning("Предупреждение", "Выберите автомобиль!")
                 return
 
-            start_date = datetime.strptime(self.rental_start.get(), '%Y-%m-%d')
-            end_date = datetime.strptime(self.rental_end.get(), '%Y-%m-%d')
+            start_date = datetime.strptime(self.rental_start_date.get(), '%Y-%m-%d')
+            end_date = datetime.strptime(self.rental_end_date.get(), '%Y-%m-%d')
 
             if end_date <= start_date:
                 messagebox.showerror("Ошибка", "Дата окончания должна быть позже даты начала!")
@@ -166,27 +171,28 @@ class RentalsTab:
             client_id = int(client_text.split(' - ')[0])
 
             # Проверяем доступность автомобиля
-            today = datetime.now().strftime('%Y-%m-%d')
-            start_date = self.rental_start.get()
+            start_dt = f"{self.rental_start_date.get()} {self.rental_start_time.get()}"
+            end_dt = f"{self.rental_end_date.get()} {self.rental_start_time.get()}"  # то же время
 
-            if start_date < today:
-                messagebox.showerror("Ошибка", "Дата начала не может быть раньше сегодняшнего дня!")
+            today = datetime.now().strftime('%Y-%m-%d %H:%M')
+            if start_dt < today:
+                messagebox.showerror("Ошибка", "Дата начала не может быть раньше текущего момента!")
                 return
 
-            is_future = start_date > today
+            is_future = start_dt > today
             car = self.cars_repo.get_by_id(car_id)
 
             if not is_future and car.status != 'доступен':
                 messagebox.showerror("Ошибка", "Автомобиль недоступен для аренды!")
                 return
 
-            if self.rentals_repo.has_date_conflict(car_id, start_date, self.rental_end.get()):
+            if self.rentals_repo.has_date_conflict(car_id, start_dt, end_dt):
                 messagebox.showerror("Ошибка", "На эти даты автомобиль уже арендован или забронирован!")
                 return
 
             rental = Rental(
                 car_id=car_id, client_id=client_id,
-                start_date=start_date, end_date=self.rental_end.get(),
+                start_date=start_dt, end_date=end_dt,
                 total_cost=float(self.rental_cost.get()),
                 status='забронировано' if is_future else 'активная'
             )
@@ -211,6 +217,8 @@ class RentalsTab:
             messagebox.showwarning("Предупреждение", "Выберите аренду для обновления!")
             return
         try:
+            start_dt = f"{self.rental_start_date.get()} {self.rental_start_time.get()}"
+            end_dt = f"{self.rental_end_date.get()} {self.rental_start_time.get()}"
             rental_id = self.rentals_tree.item(selected[0])['values'][0]
             old_rental = self.rentals_repo.get_by_id(rental_id)
             car_text = self.rental_car.get()
@@ -222,11 +230,11 @@ class RentalsTab:
             new_client_id = int(client_text.split(' - ')[0])
             rental = Rental(
                 id=rental_id, car_id=new_car_id, client_id=new_client_id,
-                start_date=self.rental_start.get(), end_date=self.rental_end.get(),
+                start_date=start_dt, end_date=end_dt,
                 total_cost=float(self.rental_cost.get()), status=old_rental.status
             )
             if self.rentals_repo.has_date_conflict(
-                    new_car_id, self.rental_start.get(), self.rental_end.get(),
+                    new_car_id, start_dt, end_dt,
                     exclude_rental_id=rental_id):
                 messagebox.showerror("Ошибка", "На эти даты автомобиль уже арендован или забронирован!")
                 return
@@ -293,9 +301,9 @@ class RentalsTab:
         """Очистка формы аренды"""
         self.rental_car.set('')
         self.rental_client.set('')
-        self.rental_start.delete(0, tk.END)
-        self.rental_start.insert(0, datetime.now().strftime('%Y-%m-%d'))
-        self.rental_end.delete(0, tk.END)
+        self.rental_start_date.set_date(datetime.now())
+        self.rental_start_time.set('10:00')
+        self.rental_end_date.set_date(datetime.now())
         self.rental_cost.delete(0, tk.END)
 
     def _on_rental_select(self, event):
@@ -311,10 +319,10 @@ class RentalsTab:
         client = self.clients_repo.get_by_id(rental.client_id)
         self.rental_car.set(f"{car.id} - {car.brand} {car.model} ({car.license_plate})" if car else '')
         self.rental_client.set(f"{client.id} - {client.full_name}" if client else '')
-        self.rental_start.delete(0, tk.END)
-        self.rental_start.insert(0, rental.start_date)
-        self.rental_end.delete(0, tk.END)
-        self.rental_end.insert(0, rental.end_date)
+        start_date_part, start_time_part = rental.start_date.rsplit(' ', 1)
+        self.rental_start_date.set_date(datetime.strptime(start_date_part, '%Y-%m-%d'))
+        self.rental_start_time.set(start_time_part)
+        self.rental_end_date.set_date(datetime.strptime(rental.end_date.split(' ')[0], '%Y-%m-%d'))
         self.rental_cost.delete(0, tk.END)
         self.rental_cost.insert(0, f"{rental.total_cost:.2f}")
 
@@ -336,7 +344,7 @@ class RentalsTab:
                 data.sort(key=lambda x: float(x[0]) if x[0] else 0, reverse=self.sort_reverse)
             elif col in ['Дата начала', 'Дата окончания']:
                 # Для пустых дат используем минимально возможную дату
-                data.sort(key=lambda x: datetime.strptime(x[0], '%Y-%m-%d') if x[0] else datetime.min,
+                data.sort(key=lambda x: datetime.strptime(x[0], '%Y-%m-%d %H:%M') if x[0] else datetime.min,
                           reverse=self.sort_reverse)
             else:
                 data.sort(key=lambda x: x[0].lower(), reverse=self.sort_reverse)

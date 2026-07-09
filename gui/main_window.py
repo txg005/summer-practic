@@ -27,7 +27,7 @@ class MainWindow:
         self.cars_repo = CarsRepository(db)
         self.clients_repo = ClientsRepository(db)
         self.rentals_repo = RentalsRepository(db)
-        self.rentals_repo.activate_due_bookings(datetime.now().strftime('%Y-%m-%d'))
+        self.rentals_repo.activate_due_bookings(datetime.now().strftime('%Y-%m-%d %H:%M'))
 
         notebook = ttk.Notebook(self.root)
         notebook.pack(fill='both', expand=True, padx=10, pady=10)

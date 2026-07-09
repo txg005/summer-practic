@@ -88,7 +88,7 @@ class ReportsTab:
                     report += f"{brand} {model} - {client} ({start} - {end})\n"
 
             # Просроченные аренды (уведомления)
-            today = datetime.now().strftime('%Y-%m-%d')
+            today = datetime.now().strftime('%Y-%m-%d %H:%M')
             overdue_rentals = self.rentals_repo.get_overdue_rentals(today)
             if overdue_rentals:
                 report += f"\n⚠️ ПРОСРОЧЕННЫЕ АРЕНДЫ ({len(overdue_rentals)}):\n"

@@ -99,15 +99,15 @@ class RentalsRepository:
         self.db.cursor.execute(query, params)
         return [RentalView(*row) for row in self.db.cursor.fetchall()]
 
-    def has_date_conflict(self, car_id: int, start_date: str, end_date: str,
+    def has_date_conflict(self, car_id: int, start_dt: str, end_dt: str,
                         exclude_rental_id: int = None) -> bool:
         """Проверка пересечения дат для данного автомобиля"""
         query = '''
             SELECT COUNT(*) FROM rentals
             WHERE car_id = ? AND status IN ('активная', 'забронировано')
-            AND start_date < ? AND end_date > ?
+            AND start_date < ? AND datetime(end_date, '+1 hour') > ?
         '''
-        params = [car_id, end_date, start_date]
+        params = [car_id, end_dt, start_dt]
         if exclude_rental_id:
             query += ' AND id != ?'
             params.append(exclude_rental_id)
@@ -134,7 +134,7 @@ class RentalsRepository:
         self.db.cursor.execute('''
             SELECT COUNT(*), SUM(total_cost)
             FROM rentals
-            WHERE start_date >= ? AND start_date <= ? AND status != 'отменена'
+            WHERE date(start_date) >= ? AND date(start_date) <= ? AND status != 'отменена'
         ''', (start_date, end_date))
         total_rentals, total_income = self.db.cursor.fetchone()
         return total_rentals, (total_income or 0)
@@ -144,7 +144,7 @@ class RentalsRepository:
             SELECT c.brand, c.model, c.license_plate, COUNT(r.id), SUM(r.total_cost)
             FROM cars c
             LEFT JOIN rentals r ON c.id = r.car_id
-                AND r.start_date >= ? AND r.start_date <= ? AND r.status != 'отменена'
+                AND r.date(start_date) >= ? AND r.date(start_date) <= ? AND r.status != 'отменена'
             GROUP BY c.id
             ORDER BY SUM(r.total_cost) DESC
         ''', (start_date, end_date))
@@ -154,7 +154,7 @@ class RentalsRepository:
         self.db.cursor.execute('''
             SELECT strftime('%Y-%m', start_date) as month, COUNT(*), SUM(total_cost)
             FROM rentals
-            WHERE start_date >= ? AND start_date <= ? AND status != 'отменена'
+            WHERE date(start_date) >= ? AND date(start_date) <= ? AND status != 'отменена'
             GROUP BY strftime('%Y-%m', start_date)
             ORDER BY month
         ''', (start_date, end_date))
@@ -189,7 +189,7 @@ class RentalsRepository:
             FROM rentals r
             JOIN cars c ON r.car_id = c.id
             JOIN clients cl ON r.client_id = cl.id
-            WHERE r.start_date >= ? AND r.start_date <= ?
+            WHERE r.date(start_date) >= ? AND r.date(start_date) <= ?
             ORDER BY r.id
         ''', (start_date, end_date))
         return self.db.cursor.fetchall()
