@@ -105,7 +105,7 @@ class RentalsRepository:
         query = '''
             SELECT COUNT(*) FROM rentals
             WHERE car_id = ? AND status IN ('активная', 'забронировано')
-            AND start_date < ? AND datetime(end_date, '+1 hour') > ?
+            AND start_date < ? AND datetime(end_date, '+1 hour') > datetime(?)
         '''
         params = [car_id, end_dt, start_dt]
         if exclude_rental_id:

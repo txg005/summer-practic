@@ -49,9 +49,13 @@ class RentalsTab:
         start_frame.grid(row=1, column=1, padx=5, pady=5)
         self.rental_start_date = DateEntry(start_frame, width=12, date_pattern='yyyy-mm-dd')
         self.rental_start_date.pack(side='left')
-        self.rental_start_time = ttk.Combobox(start_frame, values=[f'{h:02d}:00' for h in range(24)], width=6)
-        self.rental_start_time.pack(side='left', padx=(5, 0))
-        self.rental_start_time.set('10:00')
+        self.rental_start_hour = ttk.Combobox(start_frame, values=[f'{h:02d}' for h in range(24)], width=4)
+        self.rental_start_hour.pack(side='left', padx=(5, 0))
+        self.rental_start_hour.set('10')
+        ttk.Label(start_frame, text=":").pack(side='left')
+        self.rental_start_minute = ttk.Combobox(start_frame, values=['00', '15', '30', '45'], width=4)
+        self.rental_start_minute.pack(side='left')
+        self.rental_start_minute.set('00')
 
         ttk.Label(form_frame, text="Дата окончания:").grid(row=1, column=2, sticky='w', padx=5, pady=5)
         self.rental_end_date = DateEntry(form_frame, width=12, date_pattern='yyyy-mm-dd')
@@ -171,8 +175,8 @@ class RentalsTab:
             client_id = int(client_text.split(' - ')[0])
 
             # Проверяем доступность автомобиля
-            start_dt = f"{self.rental_start_date.get()} {self.rental_start_time.get()}"
-            end_dt = f"{self.rental_end_date.get()} {self.rental_start_time.get()}"  # то же время
+            start_dt = f"{self.rental_start_date.get()} {f"{self.rental_start_hour.get()}:{self.rental_start_minute.get()}"}"
+            end_dt = f"{self.rental_end_date.get()} {f"{self.rental_start_hour.get()}:{self.rental_start_minute.get()}"}"  # то же время
 
             today = datetime.now().strftime('%Y-%m-%d %H:%M')
             if start_dt < today:
@@ -217,8 +221,8 @@ class RentalsTab:
             messagebox.showwarning("Предупреждение", "Выберите аренду для обновления!")
             return
         try:
-            start_dt = f"{self.rental_start_date.get()} {self.rental_start_time.get()}"
-            end_dt = f"{self.rental_end_date.get()} {self.rental_start_time.get()}"
+            start_dt = f"{self.rental_start_date.get()} {f"{self.rental_start_hour.get()}:{self.rental_start_minute.get()}"}"
+            end_dt = f"{self.rental_end_date.get()} {f"{self.rental_start_hour.get()}:{self.rental_start_minute.get()}"}"
             rental_id = self.rentals_tree.item(selected[0])['values'][0]
             old_rental = self.rentals_repo.get_by_id(rental_id)
             car_text = self.rental_car.get()
@@ -302,7 +306,8 @@ class RentalsTab:
         self.rental_car.set('')
         self.rental_client.set('')
         self.rental_start_date.set_date(datetime.now())
-        self.rental_start_time.set('10:00')
+        self.rental_start_hour.set('10')
+        self.rental_start_minute.set('00')
         self.rental_end_date.set_date(datetime.now())
         self.rental_cost.delete(0, tk.END)
 
@@ -321,7 +326,9 @@ class RentalsTab:
         self.rental_client.set(f"{client.id} - {client.full_name}" if client else '')
         start_date_part, start_time_part = rental.start_date.rsplit(' ', 1)
         self.rental_start_date.set_date(datetime.strptime(start_date_part, '%Y-%m-%d'))
-        self.rental_start_time.set(start_time_part)
+        hour_part, minute_part = start_time_part.split(':')
+        self.rental_start_hour.set(hour_part)
+        self.rental_start_minute.set(minute_part)
         self.rental_end_date.set_date(datetime.strptime(rental.end_date.split(' ')[0], '%Y-%m-%d'))
         self.rental_cost.delete(0, tk.END)
         self.rental_cost.insert(0, f"{rental.total_cost:.2f}")
