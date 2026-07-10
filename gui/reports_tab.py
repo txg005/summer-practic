@@ -45,6 +45,9 @@ class ReportsTab:
         report_scrollbar.pack(side='right', fill='y')
         self.report_text.configure(yscrollcommand=report_scrollbar.set)
 
+        self.charts_frame = ttk.Frame(self.frame)
+        self.charts_frame.pack(fill='both', expand=True, padx=5, pady=5)
+
     def generate_report(self):
         """Генерация отчета"""
         try:
@@ -61,16 +64,13 @@ class ReportsTab:
 
             # Общая статистика
             total_rentals, total_income = self.rentals_repo.get_income_summary(start_date, end_date)
-            report += f"Общая статистика:\n"
-            report += f"Количество аренд: {total_rentals}\n"
-            report += f"Общий доход: {total_income:.2f} BYN\n\n"
+            booked_count, booked_potential = self.rentals_repo.get_bookings_summary(start_date, end_date)
 
-            # Детализация по автомобилям
-            report += "Доходы по автомобилям:\n"
-            report += "-" * 60 + "\n"
-            for brand, model, plate, count, income in self.rentals_repo.get_income_by_car(start_date, end_date):
-                report += f"{brand} {model} ({plate}): {count} аренд, {income or 0:.2f} BYN\n"
-
+            report += f"Подтверждённые аренды:\n"
+            report += f"Количество: {total_rentals}, доход: {total_income:.2f} BYN\n\n"
+            report += f"Бронирования (доход ещё не получен, могут быть отменены):\n"
+            report += f"Количество: {booked_count}, потенциальный доход: {booked_potential:.2f} BYN\n\n"
+            
             report += "\n" + "-" * 60 + "\n"
 
             # Статистика по месяцам
@@ -94,14 +94,75 @@ class ReportsTab:
                 report += f"\n⚠️ ПРОСРОЧЕННЫЕ АРЕНДЫ ({len(overdue_rentals)}):\n"
                 report += "-" * 60 + "\n"
                 for brand, model, client, phone, end_date in overdue_rentals:
-                    days_overdue = (datetime.now() - datetime.strptime(end_date, '%Y-%m-%d')).days
+                    days_overdue = (datetime.now() - datetime.strptime(end_date, '%Y-%m-%d %H:%M')).days
                     report += f"{brand} {model} - {client} ({phone})\n"
                     report += f"  Просрочено на {days_overdue} дней (до {end_date})\n\n"
 
+            # Секция бронирований и вызов графиков
+            booked_list = self.rentals_repo.get_booked_rentals(start_date, end_date)
+            if booked_list:
+                report += f"\nЗабронированные аренды ({len(booked_list)}):\n"
+                report += "-" * 60 + "\n"
+                for brand, model, client, start, end, cost in booked_list:
+                    report += f"{brand} {model} — {client}: {start} → {end}, {cost:.2f} BYN\n"
+
             self.report_text.insert(1.0, report)
+            self._show_charts(start_date, end_date)
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Ошибка при формировании отчета: {str(e)}")
+
+    def _show_charts(self, start_date: str, end_date: str):
+        try:
+            import matplotlib.pyplot as plt
+            from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+        except ImportError:
+            return
+
+        for widget in self.charts_frame.winfo_children():
+            widget.destroy()
+
+        monthly = self.rentals_repo.get_income_by_month(start_date, end_date)
+        by_car = self.rentals_repo.get_income_by_car(start_date, end_date)
+        booked = self.rentals_repo.get_booked_rentals(start_date, end_date)
+
+        months = [r[0] for r in monthly]
+        month_income = [r[2] or 0 for r in monthly]
+        car_labels = [f"{r[0]} {r[1]}" for r in by_car if r[4] and r[4] > 0]
+        car_income = [r[4] for r in by_car if r[4] and r[4] > 0]
+        booked_labels = [f"{r[0]} {r[1]}" for r in booked]
+        booked_costs = [r[5] for r in booked]
+
+        n = sum([bool(months), bool(car_income), bool(booked)])
+        if n == 0:
+            return
+
+        fig, axes = plt.subplots(1, n, figsize=(5 * n, 4))
+        if n == 1:
+            axes = [axes]
+
+        idx = 0
+        if months:
+            axes[idx].bar(months, month_income, color='steelblue')
+            axes[idx].set_title('Доходы по месяцам')
+            axes[idx].set_ylabel('BYN')
+            plt.setp(axes[idx].xaxis.get_majorticklabels(), rotation=45, ha='right')
+            idx += 1
+        if car_income:
+            axes[idx].barh(car_labels, car_income, color='coral')
+            axes[idx].set_title('Доходы по автомобилям')
+            axes[idx].set_xlabel('BYN')
+            idx += 1
+        if booked:
+            axes[idx].barh(booked_labels, booked_costs, color='gold')
+            axes[idx].set_title('Потенциальный доход\n(бронирования)')
+            axes[idx].set_xlabel('BYN')
+
+        fig.tight_layout()
+        canvas = FigureCanvasTkAgg(fig, master=self.charts_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill='both', expand=True)
+        plt.close(fig)
 
     def export_to_excel(self):
         """Экспорт в XLSX"""

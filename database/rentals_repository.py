@@ -132,19 +132,20 @@ class RentalsRepository:
 
     def get_income_summary(self, start_date: str, end_date: str):
         self.db.cursor.execute('''
-            SELECT COUNT(*), SUM(total_cost)
-            FROM rentals
-            WHERE date(start_date) >= ? AND date(start_date) <= ? AND status != 'отменена'
+            SELECT COUNT(*), SUM(total_cost) FROM rentals
+            WHERE date(start_date) >= ? AND date(start_date) <= ?
+            AND status IN ('активная', 'завершенная')
         ''', (start_date, end_date))
-        total_rentals, total_income = self.db.cursor.fetchone()
-        return total_rentals, (total_income or 0)
+        count, total = self.db.cursor.fetchone()
+        return count, (total or 0)
 
     def get_income_by_car(self, start_date: str, end_date: str):
         self.db.cursor.execute('''
             SELECT c.brand, c.model, c.license_plate, COUNT(r.id), SUM(r.total_cost)
             FROM cars c
             LEFT JOIN rentals r ON c.id = r.car_id
-                AND r.date(start_date) >= ? AND r.date(start_date) <= ? AND r.status != 'отменена'
+                AND date(r.start_date) >= ? AND date(r.start_date) <= ?
+                AND r.status IN ('активная', 'завершенная')
             GROUP BY c.id
             ORDER BY SUM(r.total_cost) DESC
         ''', (start_date, end_date))
@@ -154,7 +155,8 @@ class RentalsRepository:
         self.db.cursor.execute('''
             SELECT strftime('%Y-%m', start_date) as month, COUNT(*), SUM(total_cost)
             FROM rentals
-            WHERE date(start_date) >= ? AND date(start_date) <= ? AND status != 'отменена'
+            WHERE date(start_date) >= ? AND date(start_date) <= ?
+            AND status IN ('активная', 'завершенная')
             GROUP BY strftime('%Y-%m', start_date)
             ORDER BY month
         ''', (start_date, end_date))
@@ -177,9 +179,30 @@ class RentalsRepository:
             FROM rentals r
             JOIN cars c ON r.car_id = c.id
             JOIN clients cl ON r.client_id = cl.id
-            WHERE r.status = 'активная' AND r.end_date < ?
+            WHERE r.status = 'активная' AND datetime(r.end_date) < datetime(?)
             ORDER BY r.end_date
         ''', (today,))
+        return self.db.cursor.fetchall()
+
+    def get_bookings_summary(self, start_date: str, end_date: str):
+        self.db.cursor.execute('''
+            SELECT COUNT(*), SUM(total_cost) FROM rentals
+            WHERE date(start_date) >= ? AND date(start_date) <= ?
+            AND status = 'забронировано'
+        ''', (start_date, end_date))
+        count, total = self.db.cursor.fetchone()
+        return count, (total or 0)
+
+    def get_booked_rentals(self, start_date: str, end_date: str):
+        self.db.cursor.execute('''
+            SELECT c.brand, c.model, cl.full_name, r.start_date, r.end_date, r.total_cost
+            FROM rentals r
+            JOIN cars c ON r.car_id = c.id
+            JOIN clients cl ON r.client_id = cl.id
+            WHERE date(r.start_date) >= ? AND date(r.start_date) <= ?
+            AND r.status = 'забронировано'
+            ORDER BY r.start_date
+        ''', (start_date, end_date))
         return self.db.cursor.fetchall()
 
     def get_export_data(self, start_date: str, end_date: str):
