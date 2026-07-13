@@ -27,6 +27,28 @@ def _make_bar_hover(fig, ax, bars, values, fmt):
             fig.canvas.draw_idle()
     return on_hover
 
+def _make_barh_hover(fig, ax, bars, values, fmt):
+    annot = ax.annotate('', xy=(0, 0), xytext=(8, 0), textcoords='offset points',
+                        bbox=dict(boxstyle='round,pad=0.3', fc='white', ec='gray', alpha=0.9),
+                        fontsize=9, visible=False)
+    def on_hover(event):
+        if event.inaxes != ax:
+            if annot.get_visible():
+                annot.set_visible(False)
+                fig.canvas.draw_idle()
+            return
+        for bar, val in zip(bars, values):
+            if bar.contains(event)[0]:
+                annot.xy = (bar.get_width(), bar.get_y() + bar.get_height() / 2)
+                annot.set_text(fmt(val))
+                annot.set_visible(True)
+                fig.canvas.draw_idle()
+                return
+        if annot.get_visible():
+            annot.set_visible(False)
+            fig.canvas.draw_idle()
+    return on_hover
+
 
 class ReportsTab:
     """Вкладка 'Отчеты' """
