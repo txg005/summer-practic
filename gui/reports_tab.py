@@ -81,34 +81,39 @@ class ReportsTab:
         ttk.Button(params_frame, text="Экспорт в Excel", command=self.export_to_excel).grid(
             row=0, column=5, padx=5, pady=5)
 
-        paned = ttk.PanedWindow(self.frame, orient='vertical')
+        paned = tk.PanedWindow(self.frame, orient='vertical',
+                                sashwidth=14, sashrelief='flat', bg='#e0e0e0')
         paned.pack(fill='both', expand=True, padx=5, pady=5)
-        
-        # --- верхняя панель: текстовый отчёт ---
-        text_outer = ttk.Frame(paned)
-        paned.add(text_outer, weight=1)
 
+        text_outer = ttk.Frame(paned)
+        paned.add(text_outer, minsize=80, stretch='always')
         text_scroll = ttk.Scrollbar(text_outer, orient='vertical')
         text_scroll.pack(side='right', fill='y')
         self.report_text = tk.Text(text_outer, wrap='word', yscrollcommand=text_scroll.set)
         self.report_text.pack(fill='both', expand=True)
         text_scroll.config(command=self.report_text.yview)
 
-        # --- нижняя панель: графики со скроллом ---
-        charts_outer = ttk.Frame(paned)
-        paned.add(charts_outer, weight=1)
+        self.charts_outer = ttk.Frame(paned)
+        paned.add(self.charts_outer, minsize=80, stretch='always')
+        self._charts_fig_canvas = None
 
-        charts_vscroll = ttk.Scrollbar(charts_outer, orient='vertical')
-        charts_vscroll.pack(side='right', fill='y')
-        self.charts_canvas = tk.Canvas(charts_outer, yscrollcommand=charts_vscroll.set)
-        self.charts_canvas.pack(fill='both', expand=True)
-        charts_vscroll.config(command=self.charts_canvas.yview)
+        sash_dots = tk.Label(self.frame, text='• • •', bg='#e0e0e0',
+                            fg='#888888', font=('Arial', 8), cursor='sb_v_double_arrow')
 
-        self.charts_inner = ttk.Frame(self.charts_canvas)
-        self.charts_canvas.create_window((0, 0), window=self.charts_inner, anchor='nw')
-        self.charts_inner.bind('<Configure>', lambda e: self.charts_canvas.configure(
-            scrollregion=self.charts_canvas.bbox('all')))
+        def _place_dots(event=None):
+            try:
+                _, sy = paned.sash_coord(0)
+                cx = paned.winfo_x() + paned.winfo_width() // 2
+                cy = paned.winfo_y() + sy
+                sash_dots.place(x=cx - 20, y=cy + 1, width=40, height=12)
+                sash_dots.lift()
+            except Exception:
+                pass
 
+        paned.bind('<Configure>', _place_dots)
+        paned.bind('<ButtonRelease-1>', _place_dots)
+        self.frame.after(300, _place_dots)
+        
     def generate_report(self):
         """Генерация отчета"""
         try:
