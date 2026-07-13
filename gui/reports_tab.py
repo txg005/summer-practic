@@ -17,7 +17,6 @@ class ReportsTab:
         self._create_widgets()
 
     def _create_widgets(self):
-        # Фрейм для параметров отчета
         params_frame = ttk.LabelFrame(self.frame, text="Параметры отчета")
         params_frame.pack(fill='x', padx=5, pady=5)
 
@@ -37,37 +36,64 @@ class ReportsTab:
             row=0, column=5, padx=5, pady=5)
 
         paned = tk.PanedWindow(self.frame, orient='vertical',
-                                sashwidth=14, sashrelief='flat', bg='#e0e0e0')
+                                sashwidth=14, sashrelief='flat', bg='#d0d0d0')
         paned.pack(fill='both', expand=True, padx=5, pady=5)
 
+        # --- текстовый отчёт ---
         text_outer = ttk.Frame(paned)
-        paned.add(text_outer, minsize=80, stretch='always')
+        paned.add(text_outer, minsize=60, stretch='always')
         text_scroll = ttk.Scrollbar(text_outer, orient='vertical')
         text_scroll.pack(side='right', fill='y')
         self.report_text = tk.Text(text_outer, wrap='word', yscrollcommand=text_scroll.set)
         self.report_text.pack(fill='both', expand=True)
         text_scroll.config(command=self.report_text.yview)
+        self.report_text.bind('<MouseWheel>',
+            lambda e: self.report_text.yview_scroll(int(-1*(e.delta/120)), 'units'))
 
-        self.charts_outer = ttk.Frame(paned)
-        paned.add(self.charts_outer, minsize=80, stretch='always')
-        self._charts_fig_canvas = None
+        # --- графики со скроллом ---
+        charts_outer = ttk.Frame(paned)
+        paned.add(charts_outer, minsize=60, stretch='always')
 
-        sash_dots = tk.Label(self.frame, text='• • •', bg='#e0e0e0',
-                            fg='#888888', font=('Arial', 8), cursor='sb_v_double_arrow')
+        charts_vscroll = ttk.Scrollbar(charts_outer, orient='vertical')
+        charts_vscroll.pack(side='right', fill='y')
+        self.charts_scroll_canvas = tk.Canvas(charts_outer,
+                                            yscrollcommand=charts_vscroll.set)
+        self.charts_scroll_canvas.pack(side='left', fill='both', expand=True)
+        charts_vscroll.config(command=self.charts_scroll_canvas.yview)
+
+        self.charts_inner = ttk.Frame(self.charts_scroll_canvas)
+        self._charts_win = self.charts_scroll_canvas.create_window(
+            (0, 0), window=self.charts_inner, anchor='nw')
+
+        self.charts_inner.bind('<Configure>', lambda e:
+            self.charts_scroll_canvas.configure(
+                scrollregion=self.charts_scroll_canvas.bbox('all')))
+        self.charts_scroll_canvas.bind('<Configure>', lambda e:
+            self.charts_scroll_canvas.itemconfig(self._charts_win, width=e.width))
+
+        def _wheel(e):
+            self.charts_scroll_canvas.yview_scroll(int(-1*(e.delta/120)), 'units')
+        self.charts_scroll_canvas.bind('<MouseWheel>', _wheel)
+        self.charts_inner.bind('<MouseWheel>', _wheel)
+        self._charts_wheel = _wheel
+
+        # --- три точки на разделителе ---
+        sash_lbl = tk.Label(self.frame, text='• • •', bg='#d0d0d0', fg='#555555',
+                            font=('Arial', 8), cursor='sb_v_double_arrow')
 
         def _place_dots(event=None):
             try:
                 _, sy = paned.sash_coord(0)
-                cx = paned.winfo_x() + paned.winfo_width() // 2
-                cy = paned.winfo_y() + sy
-                sash_dots.place(x=cx - 20, y=cy + 1, width=40, height=12)
-                sash_dots.lift()
+                sash_lbl.place(x=paned.winfo_x() + paned.winfo_width()//2 - 20,
+                                y=paned.winfo_y() + sy + 1,
+                                width=40, height=11)
+                sash_lbl.lift()
             except Exception:
                 pass
 
         paned.bind('<Configure>', _place_dots)
         paned.bind('<ButtonRelease-1>', _place_dots)
-        self.frame.after(300, _place_dots)
+        self.frame.after(200, _place_dots)
 
     def generate_report(self):
         """Генерация отчета"""
