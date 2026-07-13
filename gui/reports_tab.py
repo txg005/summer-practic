@@ -36,17 +36,33 @@ class ReportsTab:
         ttk.Button(params_frame, text="Экспорт в Excel", command=self.export_to_excel).grid(
             row=0, column=5, padx=5, pady=5)
 
-        # Текстовое поле для отчета
-        self.report_text = tk.Text(self.frame, height=25, width=100)
-        self.report_text.pack(fill='both', expand=True, padx=5, pady=5)
+        paned = ttk.PanedWindow(self.frame, orient='vertical')
+        paned.pack(fill='both', expand=True, padx=5, pady=5)
+        
+        # --- верхняя панель: текстовый отчёт ---
+        text_outer = ttk.Frame(paned)
+        paned.add(text_outer, weight=1)
 
-        # Скроллбар для отчета
-        report_scrollbar = ttk.Scrollbar(self.frame, orient='vertical', command=self.report_text.yview)
-        report_scrollbar.pack(side='right', fill='y')
-        self.report_text.configure(yscrollcommand=report_scrollbar.set)
+        text_scroll = ttk.Scrollbar(text_outer, orient='vertical')
+        text_scroll.pack(side='right', fill='y')
+        self.report_text = tk.Text(text_outer, wrap='word', yscrollcommand=text_scroll.set)
+        self.report_text.pack(fill='both', expand=True)
+        text_scroll.config(command=self.report_text.yview)
 
-        self.charts_frame = ttk.Frame(self.frame)
-        self.charts_frame.pack(fill='both', expand=True, padx=5, pady=5)
+        # --- нижняя панель: графики со скроллом ---
+        charts_outer = ttk.Frame(paned)
+        paned.add(charts_outer, weight=1)
+
+        charts_vscroll = ttk.Scrollbar(charts_outer, orient='vertical')
+        charts_vscroll.pack(side='right', fill='y')
+        self.charts_canvas = tk.Canvas(charts_outer, yscrollcommand=charts_vscroll.set)
+        self.charts_canvas.pack(fill='both', expand=True)
+        charts_vscroll.config(command=self.charts_canvas.yview)
+
+        self.charts_inner = ttk.Frame(self.charts_canvas)
+        self.charts_canvas.create_window((0, 0), window=self.charts_inner, anchor='nw')
+        self.charts_inner.bind('<Configure>', lambda e: self.charts_canvas.configure(
+            scrollregion=self.charts_canvas.bbox('all')))
 
     def generate_report(self):
         """Генерация отчета"""
@@ -119,47 +135,53 @@ class ReportsTab:
         except ImportError:
             return
 
-        for widget in self.charts_frame.winfo_children():
+        for widget in self.charts_inner.winfo_children():
             widget.destroy()
 
         monthly = self.rentals_repo.get_income_by_month(start_date, end_date)
+        monthly_booked = self.rentals_repo.get_bookings_by_month(start_date, end_date)
         by_car = self.rentals_repo.get_income_by_car(start_date, end_date)
-        booked = self.rentals_repo.get_booked_rentals(start_date, end_date)
 
-        months = [r[0] for r in monthly]
-        month_income = [r[2] or 0 for r in monthly]
+        # Объединяем месяцы из дохода и бронирований
+        all_months = sorted(set(r[0] for r in monthly) | set(r[0] for r in monthly_booked))
+        income_by_month = {r[0]: (r[2] or 0) for r in monthly}
+        booked_by_month = {r[0]: (r[2] or 0) for r in monthly_booked}
+        month_income = [income_by_month.get(m, 0) for m in all_months]
+        month_booked = [booked_by_month.get(m, 0) for m in all_months]
+
         car_labels = [f"{r[0]} {r[1]}" for r in by_car if r[4] and r[4] > 0]
         car_income = [r[4] for r in by_car if r[4] and r[4] > 0]
-        booked_labels = [f"{r[0]} {r[1]}" for r in booked]
-        booked_costs = [r[5] for r in booked]
 
-        n = sum([bool(months), bool(car_income), bool(booked)])
+        has_monthly = bool(all_months)
+        has_cars = bool(car_income)
+        n = sum([has_monthly, has_cars])
         if n == 0:
             return
 
-        fig, axes = plt.subplots(1, n, figsize=(5 * n, 4))
+        fig, axes = plt.subplots(1, n, figsize=(6 * n, 4))
         if n == 1:
             axes = [axes]
 
         idx = 0
-        if months:
-            axes[idx].bar(months, month_income, color='steelblue')
+        if has_monthly:
+            x = range(len(all_months))
+            width = 0.4
+            axes[idx].bar([i - width/2 for i in x], month_income, width, label='Доход', color='steelblue')
+            axes[idx].bar([i + width/2 for i in x], month_booked, width, label='Бронирования', color='gold')
             axes[idx].set_title('Доходы по месяцам')
             axes[idx].set_ylabel('BYN')
-            plt.setp(axes[idx].xaxis.get_majorticklabels(), rotation=45, ha='right')
+            axes[idx].set_xticks(list(x))
+            axes[idx].set_xticklabels(all_months, rotation=45, ha='right')
+            axes[idx].legend()
             idx += 1
-        if car_income:
+
+        if has_cars:
             axes[idx].barh(car_labels, car_income, color='coral')
             axes[idx].set_title('Доходы по автомобилям')
             axes[idx].set_xlabel('BYN')
-            idx += 1
-        if booked:
-            axes[idx].barh(booked_labels, booked_costs, color='gold')
-            axes[idx].set_title('Потенциальный доход\n(бронирования)')
-            axes[idx].set_xlabel('BYN')
 
         fig.tight_layout()
-        canvas = FigureCanvasTkAgg(fig, master=self.charts_frame)
+        canvas = FigureCanvasTkAgg(fig, master=self.charts_inner)
         canvas.draw()
         canvas.get_tk_widget().pack(fill='both', expand=True)
         plt.close(fig)
