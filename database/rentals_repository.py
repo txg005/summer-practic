@@ -205,6 +205,17 @@ class RentalsRepository:
         ''', (start_date, end_date))
         return self.db.cursor.fetchall()
 
+    def get_bookings_by_month(self, start_date: str, end_date: str):
+        self.db.cursor.execute('''
+            SELECT strftime('%Y-%m', date(start_date)), COUNT(*), SUM(total_cost)
+            FROM rentals
+            WHERE date(start_date) >= ? AND date(start_date) <= ?
+            AND status = 'забронировано'
+            GROUP BY strftime('%Y-%m', date(start_date))
+            ORDER BY 1
+        ''', (start_date, end_date))
+        return self.db.cursor.fetchall()
+
     def get_export_data(self, start_date: str, end_date: str):
         self.db.cursor.execute('''
             SELECT r.id, c.brand, c.model, c.license_plate, cl.full_name,
