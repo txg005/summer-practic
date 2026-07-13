@@ -5,51 +5,6 @@ from tkinter import ttk, messagebox, filedialog
 from database import RentalsRepository
 
 
-def _make_bar_hover(fig, ax, bars, values, fmt):
-    annot = ax.annotate('', xy=(0, 0), xytext=(8, 8), textcoords='offset points',
-                        bbox=dict(boxstyle='round,pad=0.3', fc='white', ec='gray', alpha=0.9),
-                        fontsize=9, visible=False)
-    def on_hover(event):
-        if event.inaxes != ax:
-            if annot.get_visible():
-                annot.set_visible(False)
-                fig.canvas.draw_idle()
-            return
-        for bar, val in zip(bars, values):
-            if bar.contains(event)[0]:
-                annot.xy = (bar.get_x() + bar.get_width() / 2, bar.get_height())
-                annot.set_text(fmt(val))
-                annot.set_visible(True)
-                fig.canvas.draw_idle()
-                return
-        if annot.get_visible():
-            annot.set_visible(False)
-            fig.canvas.draw_idle()
-    return on_hover
-
-def _make_barh_hover(fig, ax, bars, values, fmt):
-    annot = ax.annotate('', xy=(0, 0), xytext=(8, 0), textcoords='offset points',
-                        bbox=dict(boxstyle='round,pad=0.3', fc='white', ec='gray', alpha=0.9),
-                        fontsize=9, visible=False)
-    def on_hover(event):
-        if event.inaxes != ax:
-            if annot.get_visible():
-                annot.set_visible(False)
-                fig.canvas.draw_idle()
-            return
-        for bar, val in zip(bars, values):
-            if bar.contains(event)[0]:
-                annot.xy = (bar.get_width(), bar.get_y() + bar.get_height() / 2)
-                annot.set_text(fmt(val))
-                annot.set_visible(True)
-                fig.canvas.draw_idle()
-                return
-        if annot.get_visible():
-            annot.set_visible(False)
-            fig.canvas.draw_idle()
-    return on_hover
-
-
 class ReportsTab:
     """Вкладка 'Отчеты' """
 
@@ -113,7 +68,7 @@ class ReportsTab:
         paned.bind('<Configure>', _place_dots)
         paned.bind('<ButtonRelease-1>', _place_dots)
         self.frame.after(300, _place_dots)
-        
+
     def generate_report(self):
         """Генерация отчета"""
         try:
@@ -185,126 +140,138 @@ class ReportsTab:
         except ImportError:
             return
 
-        for widget in self.charts_inner.winfo_children():
+        for widget in self.charts_outer.winfo_children():
             widget.destroy()
+        self._charts_fig_canvas = None
 
-        monthly        = self.rentals_repo.get_income_by_month(start_date, end_date)
-        monthly_booked = self.rentals_repo.get_bookings_by_month(start_date, end_date)
-        by_car         = self.rentals_repo.get_income_by_car(start_date, end_date)
-        booked_by_car  = self.rentals_repo.get_bookings_by_car(start_date, end_date)
+        monthly       = self.rentals_repo.get_income_by_month(start_date, end_date)
+        by_car        = self.rentals_repo.get_income_by_car(start_date, end_date)
+        monthly_book  = self.rentals_repo.get_bookings_by_month()
+        booked_by_car = self.rentals_repo.get_bookings_by_car()
 
-        # --- месячные данные ---
-        all_months         = sorted(set(r[0] for r in monthly) | set(r[0] for r in monthly_booked))
-        income_m           = {r[0]: r[2] or 0 for r in monthly}
-        count_m            = {r[0]: r[1]      for r in monthly}
-        booked_income_m    = {r[0]: r[2] or 0 for r in monthly_booked}
-        booked_count_m     = {r[0]: r[1]      for r in monthly_booked}
+        months     = [r[0] for r in monthly]
+        m_income   = [r[2] or 0 for r in monthly]
+        m_count    = [r[1] for r in monthly]
+        bk_months  = [r[0] for r in monthly_book]
+        bk_income  = [r[2] or 0 for r in monthly_book]
+        car_rows   = [r for r in by_car if (r[4] or 0) > 0]
+        car_labels = [f"{r[0]} {r[1]}" for r in car_rows]
+        car_income = [r[4] or 0 for r in car_rows]
+        car_count  = [r[3] or 0 for r in car_rows]
+        bc_labels  = [f"{r[0]} {r[1]}" for r in booked_by_car]
+        bc_income  = [r[3] or 0 for r in booked_by_car]
 
-        m_income        = [income_m.get(m, 0)        for m in all_months]
-        m_count         = [count_m.get(m, 0)         for m in all_months]
-        m_booked_income = [booked_income_m.get(m, 0) for m in all_months]
-        m_booked_count  = [booked_count_m.get(m, 0)  for m in all_months]
-
-        # --- данные по автомобилям ---
-        car_rows        = [r for r in by_car if (r[3] or 0) > 0]
-        car_labels      = [f"{r[0]} {r[1]}" for r in car_rows]
-        car_income      = [r[4] or 0         for r in car_rows]
-        car_count       = [r[3] or 0         for r in car_rows]
-
-        book_car_labels = [f"{r[0]} {r[1]}" for r in booked_by_car]
-        book_car_income = [r[3] or 0         for r in booked_by_car]
-        book_car_count  = [r[2] or 0         for r in booked_by_car]
-
-        fig, axes = plt.subplots(2, 3, figsize=(16, 8))
-        fig.suptitle(f'Отчёт за период {start_date} — {end_date}', fontsize=12, fontweight='bold')
-        hover_cbs = []
-        w = 0.35
-
-        def no_data(ax):
+        def no_data(ax, title):
+            ax.set_title(title, fontsize=10)
             ax.text(0.5, 0.5, 'Нет данных', ha='center', va='center',
-                    transform=ax.transAxes, color='gray')
+                    transform=ax.transAxes, color='gray', fontsize=10)
+            ax.axis('off')
 
-        # --- [0,0] Доходы по месяцам ---
+        def bar_hover(fig, ax, bars, vals, fmt):
+            ann = ax.annotate('', xy=(0, 0), xytext=(8, 8), textcoords='offset points',
+                            bbox=dict(boxstyle='round,pad=0.3', fc='white', ec='gray', alpha=0.9),
+                            fontsize=9, visible=False)
+            def hover(event):
+                if event.inaxes != ax:
+                    if ann.get_visible(): ann.set_visible(False); fig.canvas.draw_idle()
+                    return
+                for b, v in zip(bars, vals):
+                    if b.contains(event)[0]:
+                        ann.xy = (b.get_x() + b.get_width() / 2, b.get_height())
+                        ann.set_text(fmt(v)); ann.set_visible(True); fig.canvas.draw_idle(); return
+                if ann.get_visible(): ann.set_visible(False); fig.canvas.draw_idle()
+            return hover
+
+        def barh_hover(fig, ax, bars, vals, fmt):
+            ann = ax.annotate('', xy=(0, 0), xytext=(8, 0), textcoords='offset points',
+                            bbox=dict(boxstyle='round,pad=0.3', fc='white', ec='gray', alpha=0.9),
+                            fontsize=9, visible=False)
+            def hover(event):
+                if event.inaxes != ax:
+                    if ann.get_visible(): ann.set_visible(False); fig.canvas.draw_idle()
+                    return
+                for b, v in zip(bars, vals):
+                    if b.contains(event)[0]:
+                        ann.xy = (b.get_width(), b.get_y() + b.get_height() / 2)
+                        ann.set_text(fmt(v)); ann.set_visible(True); fig.canvas.draw_idle(); return
+                if ann.get_visible(): ann.set_visible(False); fig.canvas.draw_idle()
+            return hover
+
+        fig, axes = plt.subplots(3, 2, figsize=(12, 10))
+        fig.suptitle(f'Отчёт {start_date} — {end_date}', fontsize=12, fontweight='bold')
+        cbs = []
+
         ax = axes[0, 0]
-        if all_months:
-            x  = list(range(len(all_months)))
-            b1 = ax.bar([i - w/2 for i in x], m_income,        w, label='Подтверждённый',      color='steelblue')
-            b2 = ax.bar([i + w/2 for i in x], m_booked_income, w, label='Потенциальный (брон.)', color='gold')
-            ax.set_xticks(x); ax.set_xticklabels(all_months, rotation=45, ha='right')
-            ax.legend(fontsize=8)
-            hover_cbs.append(_make_bar_hover(fig, ax, list(b1)+list(b2),
-                                            m_income+m_booked_income, lambda v: f'{v:.2f} BYN'))
+        if months:
+            b = ax.bar(months, m_income, color='steelblue')
+            ax.set_title('Доходы по месяцам', fontsize=10); ax.set_ylabel('BYN')
+            plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+            cbs.append(bar_hover(fig, ax, b, m_income, lambda v: f'{v:.2f} BYN'))
         else:
-            no_data(ax)
-        ax.set_title('Доходы по месяцам'); ax.set_ylabel('BYN')
+            no_data(ax, 'Доходы по месяцам')
 
-        # --- [0,1] Кол-во аренд по месяцам ---
         ax = axes[0, 1]
-        if all_months:
-            x  = list(range(len(all_months)))
-            b3 = ax.bar([i - w/2 for i in x], m_count,        w, label='Подтверждённые', color='steelblue')
-            b4 = ax.bar([i + w/2 for i in x], m_booked_count, w, label='Бронирования',   color='gold')
-            ax.set_xticks(x); ax.set_xticklabels(all_months, rotation=45, ha='right')
-            ax.legend(fontsize=8)
+        if months:
+            b = ax.bar(months, m_count, color='steelblue')
+            ax.set_title('Кол-во аренд по месяцам', fontsize=10); ax.set_ylabel('Кол-во')
+            plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
             ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
-            hover_cbs.append(_make_bar_hover(fig, ax, list(b3)+list(b4),
-                                            m_count+m_booked_count, lambda v: f'{int(v)} шт.'))
+            cbs.append(bar_hover(fig, ax, b, m_count, lambda v: f'{int(v)} шт.'))
         else:
-            no_data(ax)
-        ax.set_title('Количество аренд по месяцам'); ax.set_ylabel('Кол-во')
+            no_data(ax, 'Кол-во аренд по месяцам')
 
-        # --- [0,2] Доля подтверждённых vs бронирований (pie) ---
-        ax = axes[0, 2]
-        total_confirmed = sum(m_income)
-        total_booked    = sum(m_booked_income)
-        if total_confirmed > 0 or total_booked > 0:
-            wedges, texts, autotexts = ax.pie(
-                [total_confirmed, total_booked],
-                labels=['Подтверждённый', 'Потенциальный'],
-                colors=['steelblue', 'gold'],
-                autopct='%1.1f%%', startangle=90
-            )
-            for at in autotexts:
-                at.set_fontsize(9)
-        else:
-            no_data(ax)
-        ax.set_title('Структура доходов')
-
-        # --- [1,0] Доходы по автомобилям ---
         ax = axes[1, 0]
         if car_labels:
-            b5 = ax.barh(car_labels, car_income, color='coral')
-            hover_cbs.append(_make_barh_hover(fig, ax, b5, car_income, lambda v: f'{v:.2f} BYN'))
+            b = ax.barh(car_labels, car_income, color='coral')
+            ax.set_title('Доходы по автомобилям', fontsize=10); ax.set_xlabel('BYN')
+            cbs.append(barh_hover(fig, ax, b, car_income, lambda v: f'{v:.2f} BYN'))
         else:
-            no_data(ax)
-        ax.set_title('Доходы по автомобилям (подтверждённые)'); ax.set_xlabel('BYN')
+            no_data(ax, 'Доходы по автомобилям')
 
-        # --- [1,1] Кол-во аренд по автомобилям ---
         ax = axes[1, 1]
         if car_labels:
-            b6 = ax.barh(car_labels, car_count, color='coral')
+            b = ax.barh(car_labels, car_count, color='coral')
+            ax.set_title('Кол-во аренд по автомобилям', fontsize=10); ax.set_xlabel('Кол-во')
             ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
-            hover_cbs.append(_make_barh_hover(fig, ax, b6, car_count, lambda v: f'{int(v)} шт.'))
+            cbs.append(barh_hover(fig, ax, b, car_count, lambda v: f'{int(v)} шт.'))
         else:
-            no_data(ax)
-        ax.set_title('Кол-во аренд по автомобилям'); ax.set_xlabel('Кол-во')
+            no_data(ax, 'Кол-во аренд по автомобилям')
 
-        # --- [1,2] Бронирования по автомобилям ---
-        ax = axes[1, 2]
-        if book_car_labels:
-            b7 = ax.barh(book_car_labels, book_car_income, color='gold')
-            hover_cbs.append(_make_barh_hover(fig, ax, b7, book_car_income, lambda v: f'{v:.2f} BYN'))
+        ax = axes[2, 0]
+        if bk_months:
+            b = ax.bar(bk_months, bk_income, color='gold')
+            ax.set_title('Потенциальный доход по месяцам (бронирования)', fontsize=10)
+            ax.set_ylabel('BYN')
+            plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+            cbs.append(bar_hover(fig, ax, b, bk_income, lambda v: f'{v:.2f} BYN'))
         else:
-            no_data(ax)
-        ax.set_title('Потенциальный доход (бронирования)'); ax.set_xlabel('BYN')
+            no_data(ax, 'Потенциальный доход по месяцам (бронирования)')
+
+        ax = axes[2, 1]
+        if bc_labels:
+            b = ax.barh(bc_labels, bc_income, color='gold')
+            ax.set_title('Потенциальный доход по автомобилям (бронирования)', fontsize=10)
+            ax.set_xlabel('BYN')
+            cbs.append(barh_hover(fig, ax, b, bc_income, lambda v: f'{v:.2f} BYN'))
+        else:
+            no_data(ax, 'Потенциальный доход по автомобилям (бронирования)')
 
         fig.tight_layout(rect=[0, 0, 1, 0.95])
 
-        canvas = FigureCanvasTkAgg(fig, master=self.charts_inner)
+        canvas = FigureCanvasTkAgg(fig, master=self.charts_outer)
         canvas.draw()
         canvas.get_tk_widget().pack(fill='both', expand=True)
-        for cb in hover_cbs:
+        self._charts_fig_canvas = canvas
+        for cb in cbs:
             canvas.mpl_connect('motion_notify_event', cb)
+
+        def _on_resize(event):
+            dpi = fig.dpi
+            fig.set_size_inches(max(event.width / dpi, 4),
+                                max(event.height / dpi, 3), forward=False)
+            canvas.draw_idle()
+
+        canvas.get_tk_widget().bind('<Configure>', _on_resize)
         plt.close(fig)
 
     def export_to_excel(self):
