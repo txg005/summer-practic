@@ -205,28 +205,22 @@ class RentalsRepository:
         ''', (start_date, end_date))
         return self.db.cursor.fetchall()
 
-    def get_bookings_by_car(self, start_date: str, end_date: str):
-        self.db.cursor.execute('''
-            SELECT c.brand, c.model, COUNT(r.id), SUM(r.total_cost)
-            FROM cars c
-            JOIN rentals r ON c.id = r.car_id
-                AND date(r.start_date) >= ? AND date(r.start_date) <= ?
-                AND r.status = 'забронировано'
-            GROUP BY c.id
-            HAVING COUNT(r.id) > 0
-            ORDER BY SUM(r.total_cost) DESC
-        ''', (start_date, end_date))
-        return self.db.cursor.fetchall()
-
-    def get_bookings_by_month(self, start_date: str, end_date: str):
+    def get_bookings_by_month(self):
         self.db.cursor.execute('''
             SELECT strftime('%Y-%m', date(start_date)), COUNT(*), SUM(total_cost)
-            FROM rentals
-            WHERE date(start_date) >= ? AND date(start_date) <= ?
-            AND status = 'забронировано'
-            GROUP BY strftime('%Y-%m', date(start_date))
-            ORDER BY 1
-        ''', (start_date, end_date))
+            FROM rentals WHERE status = 'забронировано'
+            GROUP BY strftime('%Y-%m', date(start_date)) ORDER BY 1
+        ''')
+        return self.db.cursor.fetchall()
+
+    def get_bookings_by_car(self):
+        self.db.cursor.execute('''
+            SELECT c.brand, c.model, COUNT(r.id), SUM(r.total_cost)
+            FROM cars c JOIN rentals r ON c.id = r.car_id
+            WHERE r.status = 'забронировано'
+            GROUP BY c.id HAVING COUNT(r.id) > 0
+            ORDER BY SUM(r.total_cost) DESC
+        ''')
         return self.db.cursor.fetchall()
 
     def get_export_data(self, start_date: str, end_date: str):
