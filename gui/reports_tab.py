@@ -183,52 +183,123 @@ class ReportsTab:
         for widget in self.charts_inner.winfo_children():
             widget.destroy()
 
-        monthly = self.rentals_repo.get_income_by_month(start_date, end_date)
+        monthly        = self.rentals_repo.get_income_by_month(start_date, end_date)
         monthly_booked = self.rentals_repo.get_bookings_by_month(start_date, end_date)
-        by_car = self.rentals_repo.get_income_by_car(start_date, end_date)
+        by_car         = self.rentals_repo.get_income_by_car(start_date, end_date)
+        booked_by_car  = self.rentals_repo.get_bookings_by_car(start_date, end_date)
 
-        # Объединяем месяцы из дохода и бронирований
-        all_months = sorted(set(r[0] for r in monthly) | set(r[0] for r in monthly_booked))
-        income_by_month = {r[0]: (r[2] or 0) for r in monthly}
-        booked_by_month = {r[0]: (r[2] or 0) for r in monthly_booked}
-        month_income = [income_by_month.get(m, 0) for m in all_months]
-        month_booked = [booked_by_month.get(m, 0) for m in all_months]
+        # --- месячные данные ---
+        all_months         = sorted(set(r[0] for r in monthly) | set(r[0] for r in monthly_booked))
+        income_m           = {r[0]: r[2] or 0 for r in monthly}
+        count_m            = {r[0]: r[1]      for r in monthly}
+        booked_income_m    = {r[0]: r[2] or 0 for r in monthly_booked}
+        booked_count_m     = {r[0]: r[1]      for r in monthly_booked}
 
-        car_labels = [f"{r[0]} {r[1]}" for r in by_car if r[4] and r[4] > 0]
-        car_income = [r[4] for r in by_car if r[4] and r[4] > 0]
+        m_income        = [income_m.get(m, 0)        for m in all_months]
+        m_count         = [count_m.get(m, 0)         for m in all_months]
+        m_booked_income = [booked_income_m.get(m, 0) for m in all_months]
+        m_booked_count  = [booked_count_m.get(m, 0)  for m in all_months]
 
-        has_monthly = bool(all_months)
-        has_cars = bool(car_income)
-        n = sum([has_monthly, has_cars])
-        if n == 0:
-            return
+        # --- данные по автомобилям ---
+        car_rows        = [r for r in by_car if (r[3] or 0) > 0]
+        car_labels      = [f"{r[0]} {r[1]}" for r in car_rows]
+        car_income      = [r[4] or 0         for r in car_rows]
+        car_count       = [r[3] or 0         for r in car_rows]
 
-        fig, axes = plt.subplots(1, n, figsize=(6 * n, 4))
-        if n == 1:
-            axes = [axes]
+        book_car_labels = [f"{r[0]} {r[1]}" for r in booked_by_car]
+        book_car_income = [r[3] or 0         for r in booked_by_car]
+        book_car_count  = [r[2] or 0         for r in booked_by_car]
 
-        idx = 0
-        if has_monthly:
-            x = range(len(all_months))
-            width = 0.4
-            axes[idx].bar([i - width/2 for i in x], month_income, width, label='Доход', color='steelblue')
-            axes[idx].bar([i + width/2 for i in x], month_booked, width, label='Бронирования', color='gold')
-            axes[idx].set_title('Доходы по месяцам')
-            axes[idx].set_ylabel('BYN')
-            axes[idx].set_xticks(list(x))
-            axes[idx].set_xticklabels(all_months, rotation=45, ha='right')
-            axes[idx].legend()
-            idx += 1
+        fig, axes = plt.subplots(2, 3, figsize=(16, 8))
+        fig.suptitle(f'Отчёт за период {start_date} — {end_date}', fontsize=12, fontweight='bold')
+        hover_cbs = []
+        w = 0.35
 
-        if has_cars:
-            axes[idx].barh(car_labels, car_income, color='coral')
-            axes[idx].set_title('Доходы по автомобилям')
-            axes[idx].set_xlabel('BYN')
+        def no_data(ax):
+            ax.text(0.5, 0.5, 'Нет данных', ha='center', va='center',
+                    transform=ax.transAxes, color='gray')
 
-        fig.tight_layout()
+        # --- [0,0] Доходы по месяцам ---
+        ax = axes[0, 0]
+        if all_months:
+            x  = list(range(len(all_months)))
+            b1 = ax.bar([i - w/2 for i in x], m_income,        w, label='Подтверждённый',      color='steelblue')
+            b2 = ax.bar([i + w/2 for i in x], m_booked_income, w, label='Потенциальный (брон.)', color='gold')
+            ax.set_xticks(x); ax.set_xticklabels(all_months, rotation=45, ha='right')
+            ax.legend(fontsize=8)
+            hover_cbs.append(_make_bar_hover(fig, ax, list(b1)+list(b2),
+                                            m_income+m_booked_income, lambda v: f'{v:.2f} BYN'))
+        else:
+            no_data(ax)
+        ax.set_title('Доходы по месяцам'); ax.set_ylabel('BYN')
+
+        # --- [0,1] Кол-во аренд по месяцам ---
+        ax = axes[0, 1]
+        if all_months:
+            x  = list(range(len(all_months)))
+            b3 = ax.bar([i - w/2 for i in x], m_count,        w, label='Подтверждённые', color='steelblue')
+            b4 = ax.bar([i + w/2 for i in x], m_booked_count, w, label='Бронирования',   color='gold')
+            ax.set_xticks(x); ax.set_xticklabels(all_months, rotation=45, ha='right')
+            ax.legend(fontsize=8)
+            ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+            hover_cbs.append(_make_bar_hover(fig, ax, list(b3)+list(b4),
+                                            m_count+m_booked_count, lambda v: f'{int(v)} шт.'))
+        else:
+            no_data(ax)
+        ax.set_title('Количество аренд по месяцам'); ax.set_ylabel('Кол-во')
+
+        # --- [0,2] Доля подтверждённых vs бронирований (pie) ---
+        ax = axes[0, 2]
+        total_confirmed = sum(m_income)
+        total_booked    = sum(m_booked_income)
+        if total_confirmed > 0 or total_booked > 0:
+            wedges, texts, autotexts = ax.pie(
+                [total_confirmed, total_booked],
+                labels=['Подтверждённый', 'Потенциальный'],
+                colors=['steelblue', 'gold'],
+                autopct='%1.1f%%', startangle=90
+            )
+            for at in autotexts:
+                at.set_fontsize(9)
+        else:
+            no_data(ax)
+        ax.set_title('Структура доходов')
+
+        # --- [1,0] Доходы по автомобилям ---
+        ax = axes[1, 0]
+        if car_labels:
+            b5 = ax.barh(car_labels, car_income, color='coral')
+            hover_cbs.append(_make_barh_hover(fig, ax, b5, car_income, lambda v: f'{v:.2f} BYN'))
+        else:
+            no_data(ax)
+        ax.set_title('Доходы по автомобилям (подтверждённые)'); ax.set_xlabel('BYN')
+
+        # --- [1,1] Кол-во аренд по автомобилям ---
+        ax = axes[1, 1]
+        if car_labels:
+            b6 = ax.barh(car_labels, car_count, color='coral')
+            ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+            hover_cbs.append(_make_barh_hover(fig, ax, b6, car_count, lambda v: f'{int(v)} шт.'))
+        else:
+            no_data(ax)
+        ax.set_title('Кол-во аренд по автомобилям'); ax.set_xlabel('Кол-во')
+
+        # --- [1,2] Бронирования по автомобилям ---
+        ax = axes[1, 2]
+        if book_car_labels:
+            b7 = ax.barh(book_car_labels, book_car_income, color='gold')
+            hover_cbs.append(_make_barh_hover(fig, ax, b7, book_car_income, lambda v: f'{v:.2f} BYN'))
+        else:
+            no_data(ax)
+        ax.set_title('Потенциальный доход (бронирования)'); ax.set_xlabel('BYN')
+
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
+
         canvas = FigureCanvasTkAgg(fig, master=self.charts_inner)
         canvas.draw()
         canvas.get_tk_widget().pack(fill='both', expand=True)
+        for cb in hover_cbs:
+            canvas.mpl_connect('motion_notify_event', cb)
         plt.close(fig)
 
     def export_to_excel(self):
