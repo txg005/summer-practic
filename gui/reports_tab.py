@@ -83,7 +83,6 @@ class ReportsTab:
 
         def _place_dots(event=None):
             try:
-                paned.update_idletasks()
                 _, sy = paned.sash_coord(0)
                 sash_lbl.place(in_=paned,
                                 x=paned.winfo_width()//2 - 20,
@@ -93,7 +92,17 @@ class ReportsTab:
             except Exception:
                 pass
 
-        paned.bind('<Configure>', _place_dots)
+        def _delayed_place_dots(event=None):
+            # Даем Tkinter время (20мс) на перерасчет геометрии виджетов,
+            # прежде чем запрашивать координаты разделителя.
+            paned.after(20, _place_dots)
+
+        # Обновляем позицию с задержкой при изменении окна
+        paned.bind('<Configure>', _delayed_place_dots)
+        # Обновляем позицию при переключении на эту вкладку в Notebook
+        self.frame.bind('<Visibility>', _delayed_place_dots) 
+
+        # Оставляем моментальное обновление для ручного перетаскивания мышью
         paned.bind('<ButtonRelease-1>', _place_dots)
         paned.bind('<B1-Motion>', _place_dots)
 
@@ -103,7 +112,9 @@ class ReportsTab:
 
         sash_lbl.bind('<B1-Motion>', _sash_drag)
         sash_lbl.bind('<ButtonRelease-1>', _place_dots)
-        self.frame.after(500, _place_dots)
+        
+        # Запасной вызов при инициализации вкладки
+        self.frame.after(100, _delayed_place_dots)
 
     def generate_report(self):
         """Генерация отчета"""
