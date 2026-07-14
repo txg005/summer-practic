@@ -61,18 +61,18 @@ class RentalsRepository:
         # Диапазон дат начала
         if start_date:
             if '-' in start_date and len(start_date.split('-')) == 3:  # Полная дата
-                query += ' AND r.start_date >= ?'
+                query += ' AND date(r.start_date) >= ?'
                 params.append(start_date)
             else:  # Поиск по части даты
-                query += ' AND r.start_date LIKE ?'
+                query += ' AND date(r.start_date) LIKE ?'
                 params.append(f'%{start_date}%')
 
         if end_date:
             if '-' in end_date and len(end_date.split('-')) == 3:  # Полная дата
-                query += ' AND r.end_date <= ?'
+                query += ' AND date(r.end_date) <= ?'
                 params.append(end_date)
             else:  # Поиск по части даты
-                query += ' AND r.end_date LIKE ?'
+                query += ' AND date(r.end_date) LIKE ?'
                 params.append(f'%{end_date}%')
 
         if car_text:
