@@ -190,16 +190,18 @@ class ReportsTab:
         bk_income  = [r[2] or 0 for r in monthly_book]
         bk_count   = [r[1] for r in monthly_book]
 
-        def trunc(s): return s[:18] + '…' if len(s) > 18 else s
+        def trunc(brand, model, n):
+            s = f"{brand} {model}" + (f" (x{n})" if n > 1 else "")
+            return s[:18] + '…' if len(s) > 18 else s
 
         car_rows   = [r for r in by_car if (r[4] or 0) > 0]
-        car_labels = [trunc(f"{r[0]} {r[1]}") for r in car_rows]
+        car_labels = [trunc(r[0], r[1], r[2]) for r in car_rows]
         car_income = [r[4] or 0 for r in car_rows]
         car_count  = [r[3] or 0 for r in car_rows]
 
-        bc_labels = [trunc(f"{r[0]} {r[1]}") for r in booked_by_car]
-        bc_income = [r[3] or 0 for r in booked_by_car]
-        bc_count  = [r[2] or 0 for r in booked_by_car]
+        bc_labels = [trunc(r[0], r[1], r[2]) for r in booked_by_car]
+        bc_income = [r[4] or 0 for r in booked_by_car]
+        bc_count  = [r[3] or 0 for r in booked_by_car]
 
         n_cars = max(len(car_labels), len(bc_labels), 4)
         row_h  = max(2.0, n_cars * 0.22)
