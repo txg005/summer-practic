@@ -370,8 +370,8 @@ class RentalsTab:
             self.rentals_tree.heading(c, text=text)
 
     def search_rentals(self):
-        start_date = self.rental_start.get().strip()
-        end_date = self.rental_end.get().strip()
+        start_date = self.rental_start_date.get().strip()
+        end_date = self.rental_end_date.get().strip()
 
         car_raw = self.rental_car.get().strip()
         car_search = car_raw.split(' - ', 1)[1] if ' - ' in car_raw else car_raw
