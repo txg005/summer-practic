@@ -93,6 +93,14 @@ class ReportsTab:
 
         paned.bind('<Configure>', _place_dots)
         paned.bind('<ButtonRelease-1>', _place_dots)
+        paned.bind('<B1-Motion>', _place_dots)
+
+        def _sash_drag(e):
+            paned.sash_place(0, 0, e.y_root - paned.winfo_rooty())
+            _place_dots()
+
+        sash_lbl.bind('<B1-Motion>', _sash_drag)
+        sash_lbl.bind('<ButtonRelease-1>', _place_dots)
         self.frame.after(200, _place_dots)
 
     def generate_report(self):
