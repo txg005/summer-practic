@@ -141,12 +141,13 @@ class RentalsRepository:
 
     def get_income_by_car(self, start_date: str, end_date: str):
         self.db.cursor.execute('''
-            SELECT c.brand, c.model, c.license_plate, COUNT(r.id), SUM(r.total_cost)
+            SELECT c.brand, c.model, COUNT(DISTINCT c.id),
+                COUNT(r.id), SUM(r.total_cost)
             FROM cars c
             LEFT JOIN rentals r ON c.id = r.car_id
                 AND date(r.start_date) >= ? AND date(r.start_date) <= ?
                 AND r.status IN ('активная', 'завершенная')
-            GROUP BY c.id
+            GROUP BY c.brand, c.model
             ORDER BY SUM(r.total_cost) DESC
         ''', (start_date, end_date))
         return self.db.cursor.fetchall()
@@ -215,10 +216,12 @@ class RentalsRepository:
 
     def get_bookings_by_car(self):
         self.db.cursor.execute('''
-            SELECT c.brand, c.model, COUNT(r.id), SUM(r.total_cost)
+            SELECT c.brand, c.model, COUNT(DISTINCT c.id),
+                COUNT(r.id), SUM(r.total_cost)
             FROM cars c JOIN rentals r ON c.id = r.car_id
             WHERE r.status = 'забронировано'
-            GROUP BY c.id HAVING COUNT(r.id) > 0
+            GROUP BY c.brand, c.model
+            HAVING COUNT(r.id) > 0
             ORDER BY SUM(r.total_cost) DESC
         ''')
         return self.db.cursor.fetchall()
