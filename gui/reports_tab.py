@@ -193,8 +193,8 @@ class ReportsTab:
         bc_count  = [r[2] or 0 for r in booked_by_car]
 
         n_cars = max(len(car_labels), len(bc_labels), 4)
-        row_h  = max(3.5, n_cars * 0.30)
-        fig_h  = row_h * 3 + 1.5
+        row_h  = max(2.0, n_cars * 0.22)
+        fig_h  = min(row_h * 3 + 1.0, 15.0)
 
         fig, axes = plt.subplots(3, 2, figsize=(14, fig_h))
         fig.suptitle(f'Отчёт {start_date} — {end_date}',
