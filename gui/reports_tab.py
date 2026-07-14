@@ -208,7 +208,7 @@ class ReportsTab:
         fig_h  = min(row_h * 3 + 1.0, 15.0)
 
         fig, axes = plt.subplots(3, 2, figsize=(14, fig_h))
-        fig.suptitle(f'Отчёт {start_date} 00:00 — {end_date} 23:59', fontsize=11, fontweight='bold')
+        fig.suptitle(f'Отчёт {start_date} — {end_date}', fontsize=11, fontweight='bold')
 
         def no_data(ax, title):
             ax.set_title(title, fontsize=9, pad=6)
