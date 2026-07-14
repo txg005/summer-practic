@@ -83,6 +83,7 @@ class ReportsTab:
 
         def _place_dots(event=None):
             try:
+                paned.update_idletasks()
                 _, sy = paned.sash_coord(0)
                 sash_lbl.place(x=paned.winfo_x() + paned.winfo_width()//2 - 20,
                                 y=paned.winfo_y() + sy + 1,
@@ -101,7 +102,7 @@ class ReportsTab:
 
         sash_lbl.bind('<B1-Motion>', _sash_drag)
         sash_lbl.bind('<ButtonRelease-1>', _place_dots)
-        self.frame.after(200, _place_dots)
+        self.frame.after(500, _place_dots)
 
     def generate_report(self):
         """Генерация отчета"""
