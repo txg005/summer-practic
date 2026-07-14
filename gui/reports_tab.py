@@ -206,8 +206,6 @@ class ReportsTab:
 
         fig, axes = plt.subplots(3, 2, figsize=(14, fig_h))
         fig.suptitle(f'Отчёт {start_date} 00:00 — {end_date} 23:59', fontsize=11, fontweight='bold')
-        fig.subplots_adjust(left=0.22, right=0.97, top=0.97, bottom=0.08,
-                            hspace=0.55, wspace=0.45)
 
         def no_data(ax, title):
             ax.set_title(title, fontsize=9, pad=6)
@@ -323,6 +321,7 @@ class ReportsTab:
             no_data(ax, 'Бронирования по автомобилям')
         ax.set_title('Бронирования по автомобилям', fontsize=9, pad=6)
 
+        fig.tight_layout(rect=[0, 0, 1, 0.96])
         canvas = FigureCanvasTkAgg(fig, master=self.charts_inner)
         canvas.draw()
         mpl_widget = canvas.get_tk_widget()
