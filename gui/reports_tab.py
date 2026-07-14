@@ -205,8 +205,7 @@ class ReportsTab:
         fig_h  = min(row_h * 3 + 1.0, 15.0)
 
         fig, axes = plt.subplots(3, 2, figsize=(14, fig_h))
-        fig.suptitle(f'Отчёт {start_date} — {end_date}',
-                    fontsize=11, fontweight='bold', y=0.995)
+        fig.suptitle(f'Отчёт {start_date} 00:00 — {end_date} 23:59', fontsize=11, fontweight='bold')
         fig.subplots_adjust(left=0.22, right=0.97, top=0.97, bottom=0.08,
                             hspace=0.55, wspace=0.45)
 
