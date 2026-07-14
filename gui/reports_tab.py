@@ -106,7 +106,7 @@ class ReportsTab:
 
             # Заголовок отчета
             report = f"ОТЧЕТ ПО ДОХОДАМ\n"
-            report += f"Период: с {start_date} по {end_date}\n"
+            report += f"Период: с {start_date} 00:00 по {end_date} 23:59\n"
             report += "=" * 60 + "\n\n"
 
             # Общая статистика
