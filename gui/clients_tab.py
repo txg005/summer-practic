@@ -6,6 +6,7 @@ from typing import Callable
 
 from database import Client, ClientsRepository
 from utils import validate_belarusian_phone, validate_driver_license
+from utils import Tooltip
 
 
 class ClientsTab:
@@ -55,7 +56,12 @@ class ClientsTab:
         ttk.Button(buttons_frame, text="Обновить", command=self.update_client).pack(side='left', padx=5)
         ttk.Button(buttons_frame, text="Удалить", command=self.delete_client).pack(side='left', padx=5)
         ttk.Button(buttons_frame, text="Очистить", command=self.clear_client_form).pack(side='left', padx=5)
-        ttk.Button(buttons_frame, text="Поиск", command=self.search_clients).pack(side='left', padx=5)
+        _search_btn = ttk.Button(buttons_frame, text="Поиск", command=self.search_clients)
+        _search_btn.pack(side='left', padx=5)
+        Tooltip(_search_btn,
+            "При поиске учитываются все поля:\n"
+            "  • ФИО\n  • водительские права\n"
+            "  • телефон\n  • email")
         ttk.Button(buttons_frame, text="Сбросить", command=self.reset_clients_search).pack(side='left', padx=5)
 
         # Таблица клиентов
