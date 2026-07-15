@@ -7,6 +7,7 @@ from typing import Callable
 
 from database import Car, CarsRepository
 from utils import validate_belarusian_license_plate
+from utils import Tooltip
 
 
 class CarsTab:
@@ -69,7 +70,13 @@ class CarsTab:
         ttk.Button(buttons_frame, text="Удалить", command=self.delete_car).pack(side='left', padx=5)
         ttk.Button(buttons_frame, text="Очистить", command=self.clear_car_form).pack(side='left', padx=5)
         ttk.Button(buttons_frame, text="Отметить ТО", command=self.mark_maintenance).pack(side='left', padx=5)
-        ttk.Button(buttons_frame, text="Поиск", command=self.search_cars).pack(side='left', padx=5)
+        _search_btn = ttk.Button(buttons_frame, text="Поиск", command=self.search_cars)
+        _search_btn.pack(side='left', padx=5)
+        Tooltip(_search_btn,
+            "При поиске учитываются:\n"
+            "  • марка\n  • модель\n  • год\n"
+            "  • номер\n  • цена/день\n  • статус\n\n"
+            "Не учитываются:\n  • последнее ТО")
         ttk.Button(buttons_frame, text="Сбросить", command=self.reset_cars_search).pack(side='left', padx=5)
 
         # Таблица автомобилей
