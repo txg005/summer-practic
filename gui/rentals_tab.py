@@ -6,6 +6,7 @@ from typing import Callable
 from tkcalendar import DateEntry
 
 from database import Rental, CarsRepository, ClientsRepository, RentalsRepository
+from utils import Tooltip
 
 
 class RentalsTab:
@@ -77,7 +78,14 @@ class RentalsTab:
         ttk.Button(buttons_frame, text="Завершить аренду", command=self.complete_rental).pack(side='left', padx=5)
         ttk.Button(buttons_frame, text="Отменить аренду", command=self.cancel_rental).pack(side='left', padx=5)
         ttk.Button(buttons_frame, text="Очистить", command=self.clear_rental_form).pack(side='left', padx=5)
-        ttk.Button(buttons_frame, text="Поиск", command=self.search_rentals).pack(side='left', padx=5)
+        _search_btn = ttk.Button(buttons_frame, text="Поиск", command=self.search_rentals)
+        _search_btn.pack(side='left', padx=5)
+        Tooltip(_search_btn,
+            "При поиске учитываются:\n"
+            "  • автомобиль\n  • клиент\n"
+            "  • дата начала / окончания\n    (без учёта времени)\n"
+            "  • стоимость\n\n"
+            "Не учитываются:\n  • статус аренды")
         ttk.Button(buttons_frame, text="Сбросить", command=self.reset_rentals_search).pack(side='left', padx=5)
 
         # Таблица аренды
