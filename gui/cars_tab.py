@@ -4,6 +4,10 @@ from dataclasses import astuple
 from datetime import datetime
 from tkinter import ttk, messagebox
 from typing import Callable
+import customtkinter as ctk
+from gui.theme import (BG_MAIN, BG_CARD, BG_INPUT, ACCENT, ACCENT_HOVER,
+                       TEXT_PRI, TEXT_SEC, BORDER, BTN_SEC, BTN_SEC_HVR,
+                       BTN_DEL, BTN_DEL_HVR)
 
 from database import Car, CarsRepository
 from utils import validate_belarusian_license_plate
@@ -19,89 +23,139 @@ class CarsTab:
         self.sort_column = None
         self.sort_reverse = False
 
-        self.frame = ttk.Frame(parent_frame)
+        self.frame = tk.Frame(parent_frame, bg=BG_MAIN)
         self.frame.pack(fill='both', expand=True)
 
         self._create_widgets()
         self.load_cars()
 
     def _create_widgets(self):
-        # Фрейм для формы
-        form_frame = ttk.LabelFrame(self.frame, text="Добавить/Редактировать автомобиль")
-        form_frame.pack(fill='x', padx=5, pady=5)
+        entry_kw = dict(fg_color=BG_INPUT, border_color=BORDER,
+                        text_color=TEXT_PRI, placeholder_text_color=TEXT_SEC,
+                        height=34, corner_radius=6)
+        combo_kw = dict(fg_color=BG_INPUT, border_color=BORDER,
+                        button_color=BORDER, button_hover_color=ACCENT,
+                        text_color=TEXT_PRI, dropdown_fg_color=BG_CARD,
+                        dropdown_text_color=TEXT_PRI,
+                        dropdown_hover_color=ACCENT,
+                        height=34, corner_radius=6)
+        btn_pri = dict(height=34, corner_radius=8,
+                    fg_color=ACCENT,   hover_color=ACCENT_HOVER)
+        btn_sec = dict(height=34, corner_radius=8,
+                    fg_color=BTN_SEC,  hover_color=BTN_SEC_HVR, text_color=TEXT_PRI)
+        btn_del = dict(height=34, corner_radius=8,
+                    fg_color=BTN_DEL,  hover_color=BTN_DEL_HVR, text_color=TEXT_PRI)
 
-        # Поля формы
-        ttk.Label(form_frame, text="Марка:").grid(row=0, column=0, sticky='w', padx=5, pady=5)
-        self.car_brand = ttk.Entry(form_frame, width=20)
-        self.car_brand.grid(row=0, column=1, padx=5, pady=5)
+        def field(parent, label_text, col, row=0, padleft=0, padright=0):
+            """Создаёт колонку с подписью — возвращает фрейм."""
+            f = ctk.CTkFrame(parent, fg_color="transparent")
+            f.grid(row=row, column=col, sticky='ew',
+                padx=(padleft, padright), pady=2)
+            ctk.CTkLabel(f, text=label_text, text_color=TEXT_SEC,
+                        font=ctk.CTkFont(size=12)).pack(anchor='w', pady=(4, 2))
+            return f
 
-        ttk.Label(form_frame, text="Модель:").grid(row=0, column=2, sticky='w', padx=5, pady=5)
-        self.car_model = ttk.Entry(form_frame, width=20)
-        self.car_model.grid(row=0, column=3, padx=5, pady=5)
+        # Карточка формы
+        card = ctk.CTkFrame(self.frame, fg_color=BG_CARD, corner_radius=12)
+        card.pack(fill='x', padx=16, pady=(12, 6))
 
-        ttk.Label(form_frame, text="Год:").grid(row=1, column=0, sticky='w', padx=5, pady=5)
-        self.car_year = ttk.Entry(form_frame, width=20)
-        self.car_year.grid(row=1, column=1, padx=5, pady=5)
+        # заголовок + поиск/сброс
+        hdr = ctk.CTkFrame(card, fg_color="transparent")
+        hdr.pack(fill='x', padx=16, pady=(12, 0))
+        ctk.CTkLabel(hdr, text="Автомобиль",
+                    text_color=TEXT_PRI,
+                    font=ctk.CTkFont(size=14, weight="bold")).pack(side='left')
+        ctk.CTkButton(hdr, text="Сбросить", width=90,
+                    command=self.reset_cars_search, **btn_sec).pack(side='right', padx=(4, 0))
+        _sb = ctk.CTkButton(hdr, text="Поиск", width=90,
+                            command=self.search_cars, **btn_pri)
+        _sb.pack(side='right', padx=(4, 4))
+        Tooltip(_sb,
+                "При поиске учитываются:\n"
+                "  • марка\n  • модель\n  • год\n"
+                "  • номер\n  • цена/день\n  • статус\n\n"
+                "Не учитываются:\n  • последнее ТО")
 
-        ttk.Label(form_frame, text="Номер:").grid(row=1, column=2, sticky='w', padx=5, pady=5)
-        self.car_license = ttk.Entry(form_frame, width=20)
-        self.car_license.grid(row=1, column=3, padx=5, pady=5)
+        ctk.CTkFrame(card, fg_color=BORDER, height=1,
+                    corner_radius=0).pack(fill='x', padx=16, pady=8)
 
-        ttk.Label(form_frame, text="Цена/день (BYN):").grid(row=2, column=0, sticky='w', padx=5, pady=5)
-        self.car_rate = ttk.Entry(form_frame, width=20)
-        self.car_rate.grid(row=2, column=1, padx=5, pady=5)
+        # поля — строка 1
+        row1 = ctk.CTkFrame(card, fg_color="transparent")
+        row1.pack(fill='x', padx=16)
+        row1.columnconfigure((0, 1, 2), weight=1)
 
-        ttk.Label(form_frame, text="Статус:").grid(row=2, column=2, sticky='w', padx=5, pady=5)
-        self.car_status = ttk.Combobox(form_frame, values=['все', 'доступен', 'арендован', 'на ТО'], width=17)
-        self.car_status.grid(row=2, column=3, padx=5, pady=5)
+        f = field(row1, "Марка", 0, padright=6)
+        self.car_brand = ctk.CTkEntry(f, placeholder_text="Toyota", **entry_kw)
+        self.car_brand.pack(fill='x')
+
+        f = field(row1, "Модель", 1, padleft=6, padright=6)
+        self.car_model = ctk.CTkEntry(f, placeholder_text="Camry", **entry_kw)
+        self.car_model.pack(fill='x')
+
+        f = field(row1, "Год", 2, padleft=6)
+        self.car_year = ctk.CTkEntry(f, placeholder_text="2020", **entry_kw)
+        self.car_year.pack(fill='x')
+
+        # поля — строка 2
+        row2 = ctk.CTkFrame(card, fg_color="transparent")
+        row2.pack(fill='x', padx=16, pady=(0, 4))
+        row2.columnconfigure((0, 1, 2, 3), weight=1)
+
+        f = field(row2, "Гос. номер", 0, padright=6)
+        self.car_license = ctk.CTkEntry(f, placeholder_text="1234 AB-7", **entry_kw)
+        self.car_license.pack(fill='x')
+
+        f = field(row2, "Цена/день (BYN)", 1, padleft=6, padright=6)
+        self.car_rate = ctk.CTkEntry(f, placeholder_text="150.00", **entry_kw)
+        self.car_rate.pack(fill='x')
+
+        f = field(row2, "Статус", 2, padleft=6, padright=6)
+        self.car_status = ctk.CTkComboBox(
+            f, values=['все', 'доступен', 'арендован', 'на ТО'], **combo_kw)
+        self.car_status.pack(fill='x')
         self.car_status.set('доступен')
 
-        ttk.Label(form_frame, text="Последнее ТО:").grid(row=3, column=0, sticky='w', padx=5, pady=5)
-        self.car_maintenance = ttk.Entry(form_frame, width=20)
-        self.car_maintenance.grid(row=3, column=1, padx=5, pady=5)
+        f = field(row2, "Последнее ТО", 3, padleft=6)
+        self.car_maintenance = ctk.CTkEntry(f, placeholder_text="YYYY-MM-DD", **entry_kw)
+        self.car_maintenance.pack(fill='x')
         self.car_maintenance.insert(0, datetime.now().strftime('%Y-%m-%d'))
 
-        # Кнопки
-        buttons_frame = ttk.Frame(form_frame)
-        buttons_frame.grid(row=4, column=0, columnspan=4, pady=10)
+        # кнопки CRUD
+        ctk.CTkFrame(card, fg_color=BORDER, height=1,
+                    corner_radius=0).pack(fill='x', padx=16, pady=(6, 8))
+        btns = ctk.CTkFrame(card, fg_color="transparent")
+        btns.pack(padx=16, pady=(0, 12), anchor='w')
 
-        ttk.Button(buttons_frame, text="Добавить", command=self.add_car).pack(side='left', padx=5)
-        ttk.Button(buttons_frame, text="Обновить", command=self.update_car).pack(side='left', padx=5)
-        ttk.Button(buttons_frame, text="Удалить", command=self.delete_car).pack(side='left', padx=5)
-        ttk.Button(buttons_frame, text="Очистить", command=self.clear_car_form).pack(side='left', padx=5)
-        ttk.Button(buttons_frame, text="Отметить ТО", command=self.mark_maintenance).pack(side='left', padx=5)
-        _search_btn = ttk.Button(buttons_frame, text="Поиск", command=self.search_cars)
-        _search_btn.pack(side='left', padx=5)
-        Tooltip(_search_btn,
-            "При поиске учитываются:\n"
-            "  • марка\n  • модель\n  • год\n"
-            "  • номер\n  • цена/день\n  • статус\n\n"
-            "Не учитываются:\n  • последнее ТО")
-        ttk.Button(buttons_frame, text="Сбросить", command=self.reset_cars_search).pack(side='left', padx=5)
+        ctk.CTkButton(btns, text="Добавить",    width=110, command=self.add_car,          **btn_pri).pack(side='left', padx=(0, 6))
+        ctk.CTkButton(btns, text="Обновить",    width=110, command=self.update_car,        **btn_sec).pack(side='left', padx=6)
+        ctk.CTkButton(btns, text="Удалить",     width=110, command=self.delete_car,        **btn_del).pack(side='left', padx=6)
+        ctk.CTkButton(btns, text="Очистить",    width=110, command=self.clear_car_form,    **btn_sec).pack(side='left', padx=6)
+        ctk.CTkButton(btns, text="Отметить ТО", width=120, command=self.mark_maintenance,  **btn_sec).pack(side='left', padx=6)
 
-        # Таблица автомобилей
-        self.cars_tree = ttk.Treeview(
-            self.frame,
-            columns=('ID', 'Марка', 'Модель', 'Год', 'Номер', 'Цена/день', 'Статус', 'Последнее ТО'),
-            show='headings'
-        )
-        self.cars_tree.pack(fill='both', expand=True, padx=5, pady=5)
+        # Таблица
+        tree_card = ctk.CTkFrame(self.frame, fg_color=BG_CARD, corner_radius=12)
+        tree_card.pack(fill='both', expand=True, padx=16, pady=(0, 12))
 
-        # Сортировка по заголовкам
-        for col in self.cars_tree['columns']:
-            self.cars_tree.heading(col, text=col, command=lambda c=col: self.sort_cars_tree(c))
+        tree_wrap = tk.Frame(tree_card, bg=BG_CARD)
+        tree_wrap.pack(fill='both', expand=True, padx=8, pady=8)
 
-        for col in self.cars_tree['columns']:
-            self.cars_tree.heading(col, text=col)
-            self.cars_tree.column(col, width=100)
+        cols = ('ID', 'Марка', 'Модель', 'Год', 'Номер',
+                'Цена/день', 'Статус', 'Последнее ТО')
+        self.cars_tree = ttk.Treeview(tree_wrap, columns=cols, show='headings')
+        self.cars_tree.pack(fill='both', expand=True, side='left')
 
-        # Привязка событий
+        widths = {'ID': 45, 'Год': 60, 'Цена/день': 95, 'Статус': 100, 'Последнее ТО': 110}
+        for col in cols:
+            self.cars_tree.heading(col, text=col,
+                                command=lambda c=col: self.sort_cars_tree(c))
+            self.cars_tree.column(col, width=widths.get(col, 110), minwidth=50)
+
+        sb = ttk.Scrollbar(tree_wrap, orient='vertical', command=self.cars_tree.yview)
+        sb.pack(side='right', fill='y')
+        self.cars_tree.configure(yscrollcommand=sb.set)
         self.cars_tree.bind('<ButtonRelease-1>', self.on_car_select)
-        
-        # Скроллбар
-        cars_scrollbar = ttk.Scrollbar(self.frame, orient='vertical', command=self.cars_tree.yview)
-        cars_scrollbar.pack(side='right', fill='y')
-        self.cars_tree.configure(yscrollcommand=cars_scrollbar.set)
+        self.cars_tree.bind('<MouseWheel>', lambda e:
+            self.cars_tree.yview_scroll(int(-1*(e.delta/120)), 'units'))
 
     def add_car(self):
         """Добавление автомобиля"""
@@ -233,13 +287,13 @@ class CarsTab:
 
     def clear_car_form(self):
         """Очистка формы автомобиля"""
-        self.car_brand.delete(0, tk.END)
-        self.car_model.delete(0, tk.END)
-        self.car_year.delete(0, tk.END)
-        self.car_license.delete(0, tk.END)
-        self.car_rate.delete(0, tk.END)
+        self.car_brand.delete(0, 'end')
+        self.car_model.delete(0, 'end')
+        self.car_year.delete(0, 'end')
+        self.car_license.delete(0, 'end')
+        self.car_rate.delete(0, 'end')
         self.car_status.set('доступен')
-        self.car_maintenance.delete(0, tk.END)
+        self.car_maintenance.delete(0, 'end')
         self.car_maintenance.insert(0, datetime.now().strftime('%Y-%m-%d'))
 
     def on_car_select(self, event):
@@ -247,18 +301,18 @@ class CarsTab:
         selected = self.cars_tree.selection()
         if selected:
             values = self.cars_tree.item(selected[0])['values']
-            self.car_brand.delete(0, tk.END)
+            self.car_brand.delete(0, 'end')
             self.car_brand.insert(0, values[1])
-            self.car_model.delete(0, tk.END)
+            self.car_model.delete(0, 'end')
             self.car_model.insert(0, values[2])
-            self.car_year.delete(0, tk.END)
+            self.car_year.delete(0, 'end')
             self.car_year.insert(0, values[3])
-            self.car_license.delete(0, tk.END)
+            self.car_license.delete(0, 'end')
             self.car_license.insert(0, values[4])
-            self.car_rate.delete(0, tk.END)
+            self.car_rate.delete(0, 'end')
             self.car_rate.insert(0, values[5])
             self.car_status.set(values[6])
-            self.car_maintenance.delete(0, tk.END)
+            self.car_maintenance.delete(0, 'end')
             self.car_maintenance.insert(0, values[7] if values[7] else '')
 
     def sort_cars_tree(self, col):
