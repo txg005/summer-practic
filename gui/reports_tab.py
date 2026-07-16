@@ -8,11 +8,12 @@ from database import RentalsRepository
 class ReportsTab:
     """Вкладка 'Отчеты' """
 
-    def __init__(self, notebook: ttk.Notebook, rentals_repo: RentalsRepository):
+    def __init__(self, parent_frame, rentals_repo: RentalsRepository):
         self.rentals_repo = rentals_repo
 
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Отчеты")
+        self.frame = ttk.Frame(parent_frame)
+        self.frame.pack(fill='both', expand=True)
+
 
         self._create_widgets()
 
