@@ -13,14 +13,14 @@ from utils import Tooltip
 class CarsTab:
     """Вкладка 'Автомобили' """
 
-    def __init__(self, notebook: ttk.Notebook, cars_repo: CarsRepository, on_cars_changed: Callable[[], None]):
+    def __init__(self, parent_frame, cars_repo: CarsRepository, on_cars_changed: Callable[[], None]):
         self.cars_repo = cars_repo
         self.on_cars_changed = on_cars_changed
         self.sort_column = None
         self.sort_reverse = False
 
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Автомобили")
+        self.frame = ttk.Frame(parent_frame)
+        self.frame.pack(fill='both', expand=True)
 
         self._create_widgets()
         self.load_cars()
