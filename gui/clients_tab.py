@@ -12,14 +12,14 @@ from utils import Tooltip
 class ClientsTab:
     """Вкладка 'Клиенты' """
 
-    def __init__(self, notebook: ttk.Notebook, clients_repo: ClientsRepository, on_clients_changed: Callable[[], None]):
+    def __init__(self, parent_frame, clients_repo: ClientsRepository, on_clients_changed: Callable[[], None]):
         self.clients_repo = clients_repo
         self.on_clients_changed = on_clients_changed
         self.sort_column = None
         self.sort_reverse = False
 
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Клиенты")
+        self.frame = ttk.Frame(parent_frame)
+        self.frame.pack(fill='both', expand=True)
 
         self._create_widgets()
         self.load_clients()
