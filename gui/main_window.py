@@ -1,144 +1,165 @@
 import tkinter as tk
 from tkinter import ttk
+import customtkinter as ctk
 from datetime import datetime
 
-from database import (
-    Database, CarsRepository, ClientsRepository, RentalsRepository, populate_sample_data
-)
+from database import Database, CarsRepository, ClientsRepository, RentalsRepository, populate_sample_data
 from gui.cars_tab import CarsTab
 from gui.clients_tab import ClientsTab
 from gui.rentals_tab import RentalsTab
 from gui.reports_tab import ReportsTab
 
-from gui.theme import apply_theme, BG_PRIMARY, BG_SECONDARY, ACCENT, TEXT_PRIMARY, TEXT_SECONDARY, FONTS
+# ── Цветовая схема ────────────────────────────────────────────────
+BG_MAIN  = "#1a1a1a"
+BG_CARD  = "#242424"
+BG_NAV   = "#111111"
+ACCENT   = "#FF8C00"
+TEXT_PRI = "#FFFFFF"
+TEXT_SEC = "#888888"
+BORDER   = "#333333"
+
+
+def _apply_ttk_dark_style():
+    """Тёмная тема для ttk-виджетов (Treeview, Entry, Scrollbar и т.д.)"""
+    st = ttk.Style()
+    st.theme_use("clam")
+    st.configure(".",                  background=BG_CARD,    foreground=TEXT_PRI, bordercolor=BORDER)
+    st.configure("TFrame",             background=BG_CARD)
+    st.configure("TLabelframe",        background=BG_CARD,    bordercolor=BORDER)
+    st.configure("TLabelframe.Label",  background=BG_CARD,    foreground=TEXT_PRI)
+    st.configure("TLabel",             background=BG_CARD,    foreground=TEXT_PRI)
+    st.configure("TEntry",             fieldbackground="#2d2d2d", foreground=TEXT_PRI,
+                                       insertcolor=TEXT_PRI,  bordercolor=BORDER)
+    st.configure("TCombobox",          fieldbackground="#2d2d2d", foreground=TEXT_PRI,
+                                       background="#2d2d2d",  bordercolor=BORDER)
+    st.map("TCombobox",
+           fieldbackground=[("readonly", "#2d2d2d")],
+           selectbackground=[("focus", ACCENT)])
+    st.configure("TButton",            background="#333333",  foreground=TEXT_PRI, bordercolor=BORDER)
+    st.map("TButton",                  background=[("active", ACCENT)])
+    st.configure("Treeview",           background="#1e1e1e",  foreground=TEXT_PRI,
+                                       fieldbackground="#1e1e1e", rowheight=28)
+    st.configure("Treeview.Heading",   background="#2d2d2d",  foreground=ACCENT,
+                                       relief="flat")
+    st.map("Treeview",
+           background=[("selected", ACCENT)],
+           foreground=[("selected", TEXT_PRI)])
+    st.configure("TScrollbar",         background="#333333",  troughcolor=BG_MAIN,
+                                       bordercolor=BORDER,    arrowcolor=TEXT_SEC)
+    st.configure("TPanedwindow",       background=BG_MAIN)
 
 
 class MainWindow:
-    """Главное окно приложения с тёмной темой и верхним меню."""
-
     def __init__(self):
-        self.root = tk.Tk()
+        ctk.set_appearance_mode("dark")
+
+        self.root = ctk.CTk()
         self.root.title("Система аренды автомобилей")
-        self.root.geometry("1200x800")
-        self.root.configure(bg=BG_PRIMARY)
-        self.root.minsize(1000, 700)
+        self.root.geometry("1200x750")
+        self.root.configure(fg_color=BG_MAIN)
 
-        # Применяем тёмную тему
-        apply_theme(self.root)
+        _apply_ttk_dark_style()
 
-        # Настраиваем стиль скрытия вкладок для Notebook, чтобы использовать наше верхнее меню
-        style = ttk.Style()
-        style.layout('Tabless.TNotebook.Tab', [])
-
-        # Оригинальная инициализация БД из первого файла
         db = Database()
         populate_sample_data(db)
-        
-        self.cars_repo = CarsRepository(db)
+
+        self.cars_repo    = CarsRepository(db)
         self.clients_repo = ClientsRepository(db)
         self.rentals_repo = RentalsRepository(db)
         self.rentals_repo.activate_due_bookings(datetime.now().strftime('%Y-%m-%d %H:%M'))
 
-        # ── Верхнее меню ──────────────────────────────────
-        self.nav_buttons = {}
-        self._build_navbar()
+        self._frames   = {}
+        self._nav_btns = {}
 
-        # ── Контейнер для "страниц" ───────────────────────
-        self.content_frame = tk.Frame(self.root, bg=BG_PRIMARY)
-        self.content_frame.pack(fill='both', expand=True, padx=20, pady=(0, 20))
-
-        # Создаём реальный ttk.Notebook, но без видимых стандартных вкладок
-        self.notebook = ttk.Notebook(self.content_frame, style='Tabless.TNotebook')
-        self.notebook.pack(fill='both', expand=True)
-
-        # Оригинальная инициализация вкладок с сохранением всех аргументов, имен и колбэков
-        self.cars_tab = CarsTab(
-            self.notebook, self.cars_repo,
-            on_cars_changed=lambda: self.rentals_tab.load_rental_combos()
-        )
-        self.clients_tab = ClientsTab(
-            self.notebook, self.clients_repo,
-            on_clients_changed=lambda: self.rentals_tab.load_rental_combos()
-        )
-        self.rentals_tab = RentalsTab(
-            self.notebook, self.rentals_repo, self.cars_repo, self.clients_repo,
-            on_rental_changed=lambda: self.cars_tab.load_cars()
-        )
-        self.reports_tab = ReportsTab(self.notebook, self.rentals_repo)
-
-        # Открываем первую вкладку по умолчанию
-        self.show_tab("cars")
+        self._build_nav()
+        self._build_content()
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-    def _build_navbar(self):
-        """Создать верхнее навигационное меню."""
-        navbar = tk.Frame(self.root, bg=BG_SECONDARY, height=56)
-        navbar.pack(fill='x', padx=0, pady=0)
-        navbar.pack_propagate(False)
+    # ── Навигация ─────────────────────────────────────────────────
+    def _build_nav(self):
+        nav = tk.Frame(self.root, bg=BG_NAV, height=54)
+        nav.pack(fill='x', side='top')
+        nav.pack_propagate(False)
 
-        # Логотип / заголовок
-        title = tk.Label(
-            navbar,
-            text="CarRental",
-            bg=BG_SECONDARY,
-            fg=TEXT_PRIMARY,
-            font=FONTS["title"],
-        )
-        title.pack(side='left', padx=(20, 40), pady=10)
+        # логотип
+        logo = tk.Frame(nav, bg=BG_NAV)
+        logo.pack(side='left', padx=(20, 0))
+        tk.Label(logo, text="Авто",   bg=BG_NAV, fg=TEXT_PRI,
+                 font=("Arial", 15, "bold")).pack(side='left')
+        tk.Label(logo, text="Прокат", bg=BG_NAV, fg=ACCENT,
+                 font=("Arial", 15, "bold")).pack(side='left')
 
-        # Пункты меню
-        menu_items = [
-            ("cars",     "Автомобили"),
-            ("clients",  "Клиенты"),
-            ("rentals",  "Аренда"),
-            ("reports",  "Отчёты"),
+        # вертикальный разделитель
+        tk.Frame(nav, bg=BORDER, width=1).pack(side='left', fill='y', padx=14, pady=10)
+
+        # кнопки вкладок
+        tabs = [
+            ("cars",    "Автомобили"),
+            ("clients", "Клиенты"),
+            ("rentals", "Аренда"),
+            ("reports", "Отчёты"),
         ]
-
-        for tab_id, label in menu_items:
-            btn = tk.Label(
-                navbar,
-                text=label,
-                bg=BG_SECONDARY,
-                fg=TEXT_SECONDARY,
-                font=FONTS["normal"],
-                cursor="hand2",
-                padx=20,
-                pady=16,
+        for key, label in tabs:
+            btn = tk.Button(
+                nav, text=label,
+                bg=BG_NAV, fg=TEXT_SEC,
+                font=("Arial", 11), bd=0,
+                padx=14, pady=4,
+                activebackground=BG_CARD, activeforeground=ACCENT,
+                cursor="hand2", relief="flat",
+                command=lambda k=key: self._show_tab(k)
             )
-            btn.pack(side='left')
-            btn.bind("<Button-1>", lambda e, tid=tab_id: self.show_tab(tid))
-            btn.bind("<Enter>",  lambda e, b=btn: b.configure(fg=TEXT_PRIMARY))
-            btn.bind("<Leave>",  lambda e, b=btn: b.configure(
-                fg=ACCENT if b == self.nav_buttons.get(self.current_tab) else TEXT_SECONDARY
-            ))
-            self.nav_buttons[tab_id] = btn
+            btn.pack(side='left', padx=2, pady=8)
+            self._nav_btns[key] = btn
 
-        # Разделитель под меню
-        separator = tk.Frame(self.root, bg="#2a2a45", height=1)
-        separator.pack(fill='x')
+        # нижняя линия-индикатор активной вкладки
+        self._indicator = tk.Frame(self.root, bg=ACCENT, height=2)
+        self._indicator.place(x=0, y=52, width=0)
 
-    def show_tab(self, tab_id: str):
-        """Переключить видимую вкладку в скрытом Notebook."""
-        self.current_tab = tab_id
+    def _show_tab(self, key: str):
+        for k, f in self._frames.items():
+            f.pack_forget()
+        self._frames[key].pack(fill='both', expand=True)
 
-        # Индексы вкладок в порядке их добавления в ttk.Notebook
-        tab_indices = {
-            "cars": 0,
-            "clients": 1,
-            "rentals": 2,
-            "reports": 3
-        }
-        
-        index = tab_indices.get(tab_id, 0)
-        self.notebook.select(index)
+        for k, btn in self._nav_btns.items():
+            is_active = (k == key)
+            btn.configure(
+                fg=ACCENT if is_active else TEXT_SEC,
+                bg="#1e1e1e" if is_active else BG_NAV
+            )
 
-        # Обновить стили кнопок навигации (активная / неактивные)
-        for tid, btn in self.nav_buttons.items():
-            if tid == tab_id:
-                btn.configure(fg=ACCENT, font=(FONTS["bold"][0], FONTS["bold"][1], "bold"))
-            else:
-                btn.configure(fg=TEXT_SECONDARY, font=FONTS["normal"])
+        # двигаем индикатор под активную кнопку
+        btn = self._nav_btns[key]
+        self.root.update_idletasks()
+        x = btn.winfo_x() + btn.master.winfo_x()
+        w = btn.winfo_width()
+        self._indicator.place(x=x + 4, y=52, width=w - 8)
+
+    # ── Контент ───────────────────────────────────────────────────
+    def _build_content(self):
+        self._content = tk.Frame(self.root, bg=BG_MAIN)
+        self._content.pack(fill='both', expand=True)
+
+        for key in ("cars", "clients", "rentals", "reports"):
+            self._frames[key] = tk.Frame(self._content, bg=BG_MAIN)
+
+        self.cars_tab = CarsTab(
+            self._frames["cars"], self.cars_repo,
+            on_cars_changed=lambda: self.rentals_tab.load_rental_combos()
+        )
+        self.clients_tab = ClientsTab(
+            self._frames["clients"], self.clients_repo,
+            on_clients_changed=lambda: self.rentals_tab.load_rental_combos()
+        )
+        self.rentals_tab = RentalsTab(
+            self._frames["rentals"], self.rentals_repo,
+            self.cars_repo, self.clients_repo,
+            on_rental_changed=lambda: self.cars_tab.load_cars()
+        )
+        self.reports_tab = ReportsTab(self._frames["reports"], self.rentals_repo)
+
+        self._show_tab("cars")
 
     def _on_close(self):
         self.cars_repo.db.close()
