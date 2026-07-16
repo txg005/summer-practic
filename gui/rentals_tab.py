@@ -12,7 +12,7 @@ from utils import Tooltip
 class RentalsTab:
     """Вкладка 'Аренда' """
 
-    def __init__(self, notebook: ttk.Notebook, rentals_repo: RentalsRepository,
+    def __init__(self, parent_frame, rentals_repo: RentalsRepository,
                  cars_repo: CarsRepository, clients_repo: ClientsRepository,
                  on_rental_changed: Callable[[], None]):
         self.rentals_repo = rentals_repo
@@ -22,8 +22,8 @@ class RentalsTab:
         self.sort_column = None
         self.sort_reverse = False
 
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Аренда")
+        self.frame = ttk.Frame(parent_frame)
+        self.frame.pack(fill='both', expand=True)
 
         self._create_widgets()
         self.load_rentals()
