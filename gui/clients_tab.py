@@ -3,6 +3,10 @@ import tkinter as tk
 from dataclasses import astuple
 from tkinter import ttk, messagebox
 from typing import Callable
+import customtkinter as ctk
+from gui.theme import (BG_MAIN, BG_CARD, BG_INPUT, ACCENT, ACCENT_HOVER,
+                       TEXT_PRI, TEXT_SEC, BORDER, BTN_SEC, BTN_SEC_HVR,
+                       BTN_DEL, BTN_DEL_HVR)
 
 from database import Client, ClientsRepository
 from utils import validate_belarusian_phone, validate_driver_license
@@ -18,71 +22,116 @@ class ClientsTab:
         self.sort_column = None
         self.sort_reverse = False
 
-        self.frame = ttk.Frame(parent_frame)
+        self.frame = tk.Frame(parent_frame, bg=BG_MAIN)
         self.frame.pack(fill='both', expand=True)
 
         self._create_widgets()
         self.load_clients()
 
     def _create_widgets(self):
-        # Фрейм для формы
-        form_frame = ttk.LabelFrame(self.frame, text="Добавить/Редактировать клиента")
-        form_frame.pack(fill='x', padx=5, pady=5)
+        entry_kw = dict(fg_color=BG_INPUT, border_color=BORDER,
+                        text_color=TEXT_PRI, placeholder_text_color=TEXT_SEC,
+                        height=34, corner_radius=6)
+        btn_pri = dict(height=34, corner_radius=8,
+                    fg_color=ACCENT,  hover_color=ACCENT_HOVER)
+        btn_sec = dict(height=34, corner_radius=8,
+                    fg_color=BTN_SEC, hover_color=BTN_SEC_HVR, text_color=TEXT_PRI)
+        btn_del = dict(height=34, corner_radius=8,
+                    fg_color=BTN_DEL, hover_color=BTN_DEL_HVR, text_color=TEXT_PRI)
 
-        # Поля формы
-        ttk.Label(form_frame, text="ФИО:").grid(row=0, column=0, sticky='w', padx=5, pady=5)
-        self.client_name = ttk.Entry(form_frame, width=30)
-        self.client_name.grid(row=0, column=1, padx=5, pady=5)
+        def field(parent, label_text, col, padleft=0, padright=0):
+            f = ctk.CTkFrame(parent, fg_color="transparent")
+            f.grid(row=0, column=col, sticky='ew',
+                padx=(padleft, padright), pady=2)
+            ctk.CTkLabel(f, text=label_text, text_color=TEXT_SEC,
+                        font=ctk.CTkFont(size=12)).pack(anchor='w', pady=(4, 2))
+            return f
 
-        ttk.Label(form_frame, text="Водительские права:").grid(row=0, column=2, sticky='w', padx=5, pady=5)
-        self.client_license = ttk.Entry(form_frame, width=20)
-        self.client_license.grid(row=0, column=3, padx=5, pady=5)
+        # Карточка формы
+        card = ctk.CTkFrame(self.frame, fg_color=BG_CARD, corner_radius=12)
+        card.pack(fill='x', padx=16, pady=(12, 6))
 
-        ttk.Label(form_frame, text="Телефон:").grid(row=1, column=0, sticky='w', padx=5, pady=5)
-        self.client_phone = ttk.Entry(form_frame, width=30)
-        self.client_phone.grid(row=1, column=1, padx=5, pady=5)
+        # заголовок
+        hdr = ctk.CTkFrame(card, fg_color="transparent")
+        hdr.pack(fill='x', padx=16, pady=(12, 0))
+        ctk.CTkLabel(hdr, text="Клиент",
+                    text_color=TEXT_PRI,
+                    font=ctk.CTkFont(size=14, weight="bold")).pack(side='left')
+        ctk.CTkButton(hdr, text="Сбросить", width=90,
+                    command=self.reset_clients_search, **btn_sec).pack(side='right', padx=(4, 0))
+        _sb = ctk.CTkButton(hdr, text="Поиск", width=90,
+                            command=self.search_clients, **btn_pri)
+        _sb.pack(side='right', padx=(4, 4))
+        Tooltip(_sb,
+                "При поиске учитываются все поля:\n"
+                "  • ФИО\n  • водительские права\n"
+                "  • телефон\n  • email")
 
-        ttk.Label(form_frame, text="Email:").grid(row=1, column=2, sticky='w', padx=5, pady=5)
-        self.client_email = ttk.Entry(form_frame, width=20)
-        self.client_email.grid(row=1, column=3, padx=5, pady=5)
-        self.client_phone.bind('<FocusIn>', self._on_phone_focus_in)
+        ctk.CTkFrame(card, fg_color=BORDER, height=1,
+                    corner_radius=0).pack(fill='x', padx=16, pady=8)
+
+        # поля — строка 1
+        row1 = ctk.CTkFrame(card, fg_color="transparent")
+        row1.pack(fill='x', padx=16)
+        row1.columnconfigure((0, 1), weight=1)
+
+        f = field(row1, "ФИО", 0, padright=6)
+        self.client_name = ctk.CTkEntry(f, placeholder_text="Иванов Иван Иванович", **entry_kw)
+        self.client_name.pack(fill='x')
+
+        f = field(row1, "Водительские права", 1, padleft=6)
+        self.client_license = ctk.CTkEntry(f, placeholder_text="5JK 789012", **entry_kw)
+        self.client_license.pack(fill='x')
+
+        # поля — строка 2
+        row2 = ctk.CTkFrame(card, fg_color="transparent")
+        row2.pack(fill='x', padx=16, pady=(0, 4))
+        row2.columnconfigure((0, 1), weight=1)
+
+        f = field(row2, "Телефон", 0, padright=6)
+        self.client_phone = ctk.CTkEntry(f, placeholder_text="+375 29 000-00-00", **entry_kw)
+        self.client_phone.pack(fill='x')
+        self.client_phone.bind('<FocusIn>',   self._on_phone_focus_in)
         self.client_phone.bind('<KeyRelease>', self._format_phone)
 
-        # Кнопки
-        buttons_frame = ttk.Frame(form_frame)
-        buttons_frame.grid(row=2, column=0, columnspan=4, pady=10)
+        f = field(row2, "Email", 1, padleft=6)
+        self.client_email = ctk.CTkEntry(f, placeholder_text="example@mail.com", **entry_kw)
+        self.client_email.pack(fill='x')
 
-        ttk.Button(buttons_frame, text="Добавить", command=self.add_client).pack(side='left', padx=5)
-        ttk.Button(buttons_frame, text="Обновить", command=self.update_client).pack(side='left', padx=5)
-        ttk.Button(buttons_frame, text="Удалить", command=self.delete_client).pack(side='left', padx=5)
-        ttk.Button(buttons_frame, text="Очистить", command=self.clear_client_form).pack(side='left', padx=5)
-        _search_btn = ttk.Button(buttons_frame, text="Поиск", command=self.search_clients)
-        _search_btn.pack(side='left', padx=5)
-        Tooltip(_search_btn,
-            "При поиске учитываются все поля:\n"
-            "  • ФИО\n  • водительские права\n"
-            "  • телефон\n  • email")
-        ttk.Button(buttons_frame, text="Сбросить", command=self.reset_clients_search).pack(side='left', padx=5)
+        # кнопки CRUD
+        ctk.CTkFrame(card, fg_color=BORDER, height=1,
+                    corner_radius=0).pack(fill='x', padx=16, pady=(6, 8))
+        btns = ctk.CTkFrame(card, fg_color="transparent")
+        btns.pack(padx=16, pady=(0, 12), anchor='w')
 
-        # Таблица клиентов
-        self.clients_tree = ttk.Treeview(
-            self.frame,
-            columns=('ID', 'ФИО', 'Водительские права', 'Телефон', 'Email'),
-            show='headings'
-        )
-        self.clients_tree.pack(fill='both', expand=True, padx=5, pady=5)
+        ctk.CTkButton(btns, text="Добавить", width=110, command=self.add_client,       **btn_pri).pack(side='left', padx=(0, 6))
+        ctk.CTkButton(btns, text="Обновить", width=110, command=self.update_client,     **btn_sec).pack(side='left', padx=6)
+        ctk.CTkButton(btns, text="Удалить",  width=110, command=self.delete_client,     **btn_del).pack(side='left', padx=6)
+        ctk.CTkButton(btns, text="Очистить", width=110, command=self.clear_client_form, **btn_sec).pack(side='left', padx=6)
 
-        # Сортировка по заголовкам
-        for col in self.clients_tree['columns']:
-            self.clients_tree.heading(col, text=col, command=lambda c=col: self.sort_clients_tree(c))
+        # Таблица
+        tree_card = ctk.CTkFrame(self.frame, fg_color=BG_CARD, corner_radius=12)
+        tree_card.pack(fill='both', expand=True, padx=16, pady=(0, 12))
 
-        # Заголовки столбцов
-        for col in self.clients_tree['columns']:
-            self.clients_tree.heading(col, text=col)
-            self.clients_tree.column(col, width=150)
+        tree_wrap = tk.Frame(tree_card, bg=BG_CARD)
+        tree_wrap.pack(fill='both', expand=True, padx=8, pady=8)
 
-        # Привязка событий
+        cols = ('ID', 'ФИО', 'Водительские права', 'Телефон', 'Email')
+        self.clients_tree = ttk.Treeview(tree_wrap, columns=cols, show='headings')
+        self.clients_tree.pack(fill='both', expand=True, side='left')
+
+        widths = {'ID': 45, 'Водительские права': 140, 'Телефон': 150}
+        for col in cols:
+            self.clients_tree.heading(col, text=col,
+                                    command=lambda c=col: self.sort_clients_tree(c))
+            self.clients_tree.column(col, width=widths.get(col, 200), minwidth=50)
+
+        sb = ttk.Scrollbar(tree_wrap, orient='vertical', command=self.clients_tree.yview)
+        sb.pack(side='right', fill='y')
+        self.clients_tree.configure(yscrollcommand=sb.set)
         self.clients_tree.bind('<ButtonRelease-1>', self.on_client_select)
+        self.clients_tree.bind('<MouseWheel>', lambda e:
+            self.clients_tree.yview_scroll(int(-1*(e.delta/120)), 'units'))
 
     def add_client(self):
         """Добавление клиента"""
@@ -178,23 +227,23 @@ class ClientsTab:
 
     def clear_client_form(self):
         """Очистка формы клиента"""
-        self.client_name.delete(0, tk.END)
-        self.client_license.delete(0, tk.END)
-        self.client_phone.delete(0, tk.END)
-        self.client_email.delete(0, tk.END)
+        self.client_name.delete(0, 'end')
+        self.client_license.delete(0, 'end')
+        self.client_phone.delete(0, 'end')
+        self.client_email.delete(0, 'end')
 
     def on_client_select(self, event):
         """Обработка выбора клиента"""
         selected = self.clients_tree.selection()
         if selected:
             values = self.clients_tree.item(selected[0])['values']
-            self.client_name.delete(0, tk.END)
+            self.client_name.delete(0, 'end')
             self.client_name.insert(0, values[1])
-            self.client_license.delete(0, tk.END)
+            self.client_license.delete(0, 'end')
             self.client_license.insert(0, values[2])
-            self.client_phone.delete(0, tk.END)
+            self.client_phone.delete(0, 'end')
             self.client_phone.insert(0, values[3])
-            self.client_email.delete(0, tk.END)
+            self.client_email.delete(0, 'end')
             self.client_email.insert(0, values[4])
 
     def sort_clients_tree(self, col):
