@@ -108,9 +108,10 @@ class MainWindow:
                 padx=14, pady=4,
                 activebackground=BG_CARD, activeforeground=ACCENT,
                 cursor="hand2", relief="flat",
-                highlightthickness=0,
+                takefocus=False,
                 command=lambda k=key: self._show_tab(k)
             )
+            btn.bind("<FocusIn>", lambda e: self.root.focus_set())
             btn.pack(side='left', padx=2, pady=8)
             self._nav_btns[key] = btn
 
