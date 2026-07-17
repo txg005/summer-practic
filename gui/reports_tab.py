@@ -1,6 +1,10 @@
 import tkinter as tk
 from datetime import datetime, timedelta
 from tkinter import ttk, messagebox, filedialog
+import customtkinter as ctk
+from gui.ctk_calendar import CTkDatePicker
+from gui.theme import (BG_MAIN, BG_CARD, ACCENT, ACCENT_HOVER,
+                       TEXT_PRI, TEXT_SEC, BORDER, BTN_SEC, BTN_SEC_HVR)
 
 from database import RentalsRepository
 
@@ -11,58 +15,81 @@ class ReportsTab:
     def __init__(self, parent_frame, rentals_repo: RentalsRepository):
         self.rentals_repo = rentals_repo
 
-        self.frame = ttk.Frame(parent_frame)
+        self.frame = tk.Frame(parent_frame, bg=BG_MAIN)
         self.frame.pack(fill='both', expand=True)
-
 
         self._create_widgets()
 
     def _create_widgets(self):
-        params_frame = ttk.LabelFrame(self.frame, text="Параметры отчета")
-        params_frame.pack(fill='x', padx=5, pady=5)
+        # ── Параметры ─────────────────────────────────────────────────
+        params_card = ctk.CTkFrame(self.frame, fg_color=BG_CARD, corner_radius=12)
+        params_card.pack(fill='x', padx=16, pady=(12, 6))
 
-        ttk.Label(params_frame, text="Дата начала:").grid(row=0, column=0, sticky='w', padx=5, pady=5)
-        self.report_start = ttk.Entry(params_frame, width=15)
-        self.report_start.grid(row=0, column=1, padx=5, pady=5)
-        self.report_start.insert(0, (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+        inner = ctk.CTkFrame(params_card, fg_color="transparent")
+        inner.pack(fill='x', padx=16, pady=12)
 
-        ttk.Label(params_frame, text="Дата окончания:").grid(row=0, column=2, sticky='w', padx=5, pady=5)
-        self.report_end = ttk.Entry(params_frame, width=15)
-        self.report_end.grid(row=0, column=3, padx=5, pady=5)
-        self.report_end.insert(0, datetime.now().strftime('%Y-%m-%d'))
+        def date_col(parent, label_text, days_offset=0):
+            col = ctk.CTkFrame(parent, fg_color="transparent")
+            col.pack(side='left', padx=(0, 12))
+            ctk.CTkLabel(col, text=label_text, text_color=TEXT_SEC,
+                        font=ctk.CTkFont(size=12)).pack(anchor='w', pady=(0, 4))
+            picker = CTkDatePicker(col, height=34)
+            picker.pack()
+            if days_offset:
+                from datetime import timedelta
+                picker.set_date(datetime.now().date() + timedelta(days=days_offset))
+            return picker
 
-        ttk.Button(params_frame, text="Сформировать отчет", command=self.generate_report).grid(
-            row=0, column=4, padx=5, pady=5)
-        ttk.Button(params_frame, text="Экспорт в Excel", command=self.export_to_excel).grid(
-            row=0, column=5, padx=5, pady=5)
+        self.report_start = date_col(inner, "Дата начала", days_offset=-30)
+        self.report_end   = date_col(inner, "Дата окончания")
 
+        def btn_col(parent, text, command, fg=ACCENT, hv=ACCENT_HOVER, txt=TEXT_PRI):
+            col = ctk.CTkFrame(parent, fg_color="transparent")
+            col.pack(side='left', padx=(0, 6))
+            ctk.CTkLabel(col, text=" ", font=ctk.CTkFont(size=12)).pack(anchor='w', pady=(0, 4))
+            ctk.CTkButton(col, text=text, height=34, corner_radius=8,
+                        fg_color=fg, hover_color=hv, text_color=txt,
+                        command=command).pack()
+
+        btn_col(inner, "Сформировать отчёт", self.generate_report)
+        btn_col(inner, "Экспорт в Excel", self.export_to_excel,
+                fg=BTN_SEC, hv=BTN_SEC_HVR)
+
+        # ── PanedWindow ───────────────────────────────────────────────
         paned = tk.PanedWindow(self.frame, orient='vertical',
                                 sashwidth=14, sashrelief='flat', bg='#d0d0d0')
-        paned.pack(fill='both', expand=True, padx=5, pady=5)
+        paned.pack(fill='both', expand=True, padx=16, pady=(0, 12))
 
-        # --- текстовый отчёт ---
-        text_outer = ttk.Frame(paned)
+        # Текстовый отчёт
+        text_outer = tk.Frame(paned, bg=BG_CARD)
         paned.add(text_outer, minsize=60, stretch='always')
+
         text_scroll = ttk.Scrollbar(text_outer, orient='vertical')
         text_scroll.pack(side='right', fill='y')
-        self.report_text = tk.Text(text_outer, wrap='word', yscrollcommand=text_scroll.set)
+        self.report_text = tk.Text(
+            text_outer, wrap='word',
+            bg="white", fg="black",
+            insertbackground="black",
+            font=("Consolas", 10), relief='flat', bd=8,
+            yscrollcommand=text_scroll.set)
         self.report_text.pack(fill='both', expand=True)
         text_scroll.config(command=self.report_text.yview)
         self.report_text.bind('<MouseWheel>',
             lambda e: self.report_text.yview_scroll(int(-1*(e.delta/120)), 'units'))
 
-        # --- графики со скроллом ---
-        charts_outer = ttk.Frame(paned)
+        # Графики
+        charts_outer = tk.Frame(paned, bg="white")
         paned.add(charts_outer, minsize=60, stretch='always')
 
         charts_vscroll = ttk.Scrollbar(charts_outer, orient='vertical')
         charts_vscroll.pack(side='right', fill='y')
-        self.charts_scroll_canvas = tk.Canvas(charts_outer,
-                                            yscrollcommand=charts_vscroll.set)
+        self.charts_scroll_canvas = tk.Canvas(
+            charts_outer, bg="white", highlightthickness=0,
+            yscrollcommand=charts_vscroll.set)
         self.charts_scroll_canvas.pack(side='left', fill='both', expand=True)
         charts_vscroll.config(command=self.charts_scroll_canvas.yview)
 
-        self.charts_inner = ttk.Frame(self.charts_scroll_canvas)
+        self.charts_inner = tk.Frame(self.charts_scroll_canvas, bg="white")
         self._charts_win = self.charts_scroll_canvas.create_window(
             (0, 0), window=self.charts_inner, anchor='nw')
 
@@ -78,7 +105,7 @@ class ReportsTab:
         self.charts_inner.bind('<MouseWheel>', _wheel)
         self._charts_wheel = _wheel
 
-        # --- три точки на разделителе ---
+        # три точки
         sash_lbl = tk.Label(self.frame, text='• • •', bg='#d0d0d0', fg='#555555',
                             font=('Arial', 8), cursor='sb_v_double_arrow')
 
@@ -87,23 +114,16 @@ class ReportsTab:
                 _, sy = paned.sash_coord(0)
                 sash_lbl.place(in_=paned,
                                 x=paned.winfo_width()//2 - 20,
-                                y=sy + 1,
-                                width=40, height=11)
+                                y=sy + 1, width=40, height=11)
                 sash_lbl.lift()
             except Exception:
                 pass
 
         def _delayed_place_dots(event=None):
-            # Даем Tkinter время (20мс) на перерасчет геометрии виджетов,
-            # прежде чем запрашивать координаты разделителя.
             paned.after(20, _place_dots)
 
-        # Обновляем позицию с задержкой при изменении окна
         paned.bind('<Configure>', _delayed_place_dots)
-        # Обновляем позицию при переключении на эту вкладку в Notebook
-        self.frame.bind('<Visibility>', _delayed_place_dots) 
-
-        # Оставляем моментальное обновление для ручного перетаскивания мышью
+        self.frame.bind('<Visibility>', _delayed_place_dots)
         paned.bind('<ButtonRelease-1>', _place_dots)
         paned.bind('<B1-Motion>', _place_dots)
 
@@ -113,8 +133,6 @@ class ReportsTab:
 
         sash_lbl.bind('<B1-Motion>', _sash_drag)
         sash_lbl.bind('<ButtonRelease-1>', _place_dots)
-        
-        # Запасной вызов при инициализации вкладки
         self.frame.after(100, _delayed_place_dots)
 
     def generate_report(self):
