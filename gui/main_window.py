@@ -108,6 +108,7 @@ class MainWindow:
                 padx=14, pady=4,
                 activebackground=BG_CARD, activeforeground=ACCENT,
                 cursor="hand2", relief="flat",
+                highlightthickness=0,
                 command=lambda k=key: self._show_tab(k)
             )
             btn.pack(side='left', padx=2, pady=8)
@@ -159,7 +160,7 @@ class MainWindow:
         )
         self.reports_tab = ReportsTab(self._frames["reports"], self.rentals_repo)
 
-        self._show_tab("cars")
+        self.root.after(150, lambda: self._show_tab("cars"))
 
     def _on_close(self):
         self.cars_repo.db.close()
