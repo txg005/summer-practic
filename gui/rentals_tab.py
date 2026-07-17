@@ -3,7 +3,11 @@ from dataclasses import astuple
 from datetime import datetime
 from tkinter import ttk, messagebox
 from typing import Callable
-from tkcalendar import DateEntry
+import customtkinter as ctk
+from gui.ctk_calendar import CTkDatePicker
+from gui.theme import (BG_MAIN, BG_CARD, BG_INPUT, ACCENT, ACCENT_HOVER,
+                       TEXT_PRI, TEXT_SEC, BORDER, BTN_SEC, BTN_SEC_HVR,
+                       BTN_DEL, BTN_DEL_HVR)
 
 from database import Rental, CarsRepository, ClientsRepository, RentalsRepository
 from utils import Tooltip
@@ -22,7 +26,7 @@ class RentalsTab:
         self.sort_column = None
         self.sort_reverse = False
 
-        self.frame = ttk.Frame(parent_frame)
+        self.frame = tk.Frame(parent_frame, bg=BG_MAIN)
         self.frame.pack(fill='both', expand=True)
 
         self._create_widgets()
@@ -30,93 +34,171 @@ class RentalsTab:
         self.load_rental_combos()
 
     def _create_widgets(self):
-        # Фрейм для формы
-        form_frame = ttk.LabelFrame(self.frame, text="Новая аренда")
-        form_frame.pack(fill='x', padx=5, pady=5)
+        entry_kw = dict(fg_color=BG_INPUT, border_color=BORDER,
+                        text_color=TEXT_PRI, placeholder_text_color=TEXT_SEC,
+                        height=34, corner_radius=6)
+        combo_kw = dict(fg_color=BG_INPUT, border_color=BORDER,
+                        button_color=BORDER, button_hover_color=ACCENT,
+                        text_color=TEXT_PRI, dropdown_fg_color=BG_CARD,
+                        dropdown_text_color=TEXT_PRI,
+                        dropdown_hover_color=ACCENT,
+                        height=34, corner_radius=6)
+        btn_pri = dict(height=34, corner_radius=8,
+                    fg_color=ACCENT,  hover_color=ACCENT_HOVER)
+        btn_sec = dict(height=34, corner_radius=8,
+                    fg_color=BTN_SEC, hover_color=BTN_SEC_HVR, text_color=TEXT_PRI)
+        btn_del = dict(height=34, corner_radius=8,
+                    fg_color=BTN_DEL, hover_color=BTN_DEL_HVR, text_color=TEXT_PRI)
+        btn_ok  = dict(height=34, corner_radius=8,
+                    fg_color="#1a5c2a", hover_color="#236b33", text_color=TEXT_PRI)
 
-        # Поля формы
-        ttk.Label(form_frame, text="Автомобиль:").grid(row=0, column=0, sticky='w', padx=5, pady=5)
-        self.rental_car = ttk.Combobox(form_frame, width=25)
-        self.rental_car.grid(row=0, column=1, padx=5, pady=5)
-        self.rental_car.bind('<KeyRelease>', self._filter_cars)
+        def label(parent, text):
+            ctk.CTkLabel(parent, text=text, text_color=TEXT_SEC,
+                        font=ctk.CTkFont(size=12)).pack(anchor='w', pady=(4, 2))
 
-        ttk.Label(form_frame, text="Клиент:").grid(row=0, column=2, sticky='w', padx=5, pady=5)
-        self.rental_client = ttk.Combobox(form_frame, width=25)
-        self.rental_client.grid(row=0, column=3, padx=5, pady=5)
-        self.rental_client.bind('<KeyRelease>', self._filter_clients)
+        def sep(parent):
+            ctk.CTkFrame(parent, fg_color=BORDER, height=1,
+                        corner_radius=0).pack(fill='x', padx=16, pady=8)
 
-        ttk.Label(form_frame, text="Дата начала:").grid(row=1, column=0, sticky='w', padx=5, pady=5)
-        start_frame = ttk.Frame(form_frame)
-        start_frame.grid(row=1, column=1, padx=5, pady=5)
-        self.rental_start_date = DateEntry(start_frame, width=12, date_pattern='yyyy-mm-dd')
-        self.rental_start_date.pack(side='left')
-        self.rental_start_hour = ttk.Combobox(start_frame, values=[f'{h:02d}' for h in range(24)], width=4)
-        self.rental_start_hour.pack(side='left', padx=(5, 0))
-        self.rental_start_hour.set('10')
-        ttk.Label(start_frame, text=":").pack(side='left')
-        self.rental_start_minute = ttk.Combobox(start_frame, values=['00', '15', '30', '45'], width=4)
-        self.rental_start_minute.pack(side='left')
-        self.rental_start_minute.set('00')
+        # Карточка формы
+        card = ctk.CTkFrame(self.frame, fg_color=BG_CARD, corner_radius=12)
+        card.pack(fill='x', padx=16, pady=(12, 6))
 
-        ttk.Label(form_frame, text="Дата окончания:").grid(row=1, column=2, sticky='w', padx=5, pady=5)
-        self.rental_end_date = DateEntry(form_frame, width=12, date_pattern='yyyy-mm-dd')
-        self.rental_end_date.grid(row=1, column=3, padx=5, pady=5)
-
-        ttk.Label(form_frame, text="Стоимость:").grid(row=2, column=0, sticky='w', padx=5, pady=5)
-        self.rental_cost = ttk.Entry(form_frame, width=25)
-        self.rental_cost.grid(row=2, column=1, padx=5, pady=5)
-
-        ttk.Button(form_frame, text="Рассчитать стоимость", command=self.calculate_cost).grid(
-            row=2, column=2, padx=5, pady=5)
-
-        # Кнопки
-        buttons_frame = ttk.Frame(form_frame)
-        buttons_frame.grid(row=3, column=0, columnspan=4, pady=10)
-
-        ttk.Button(buttons_frame, text="Создать аренду", command=self.add_rental).pack(side='left', padx=5)
-        ttk.Button(buttons_frame, text="Обновить аренду", command=self.update_rental).pack(side='left', padx=5)
-        ttk.Button(buttons_frame, text="Завершить аренду", command=self.complete_rental).pack(side='left', padx=5)
-        ttk.Button(buttons_frame, text="Отменить аренду", command=self.cancel_rental).pack(side='left', padx=5)
-        ttk.Button(buttons_frame, text="Очистить", command=self.clear_rental_form).pack(side='left', padx=5)
-        _search_btn = ttk.Button(buttons_frame, text="Поиск", command=self.search_rentals)
-        _search_btn.pack(side='left', padx=5)
-        Tooltip(_search_btn,
+        hdr = ctk.CTkFrame(card, fg_color="transparent")
+        hdr.pack(fill='x', padx=16, pady=(12, 0))
+        ctk.CTkLabel(hdr, text="Аренда",
+                    text_color=TEXT_PRI,
+                    font=ctk.CTkFont(size=14, weight="bold")).pack(side='left')
+        ctk.CTkButton(hdr, text="Сбросить", width=90,
+                    command=self.reset_rentals_search, **btn_sec).pack(side='right', padx=(4, 0))
+        _sb = ctk.CTkButton(hdr, text="Поиск", width=90,
+                            command=self.search_rentals, **btn_pri)
+        _sb.pack(side='right', padx=(4, 4))
+        Tooltip(_sb,
             "При поиске учитываются:\n"
             "  • автомобиль\n  • клиент\n"
             "  • дата начала / окончания\n    (без учёта времени)\n"
             "  • стоимость\n\n"
             "Не учитываются:\n  • статус аренды")
-        ttk.Button(buttons_frame, text="Сбросить", command=self.reset_rentals_search).pack(side='left', padx=5)
 
-        # Таблица аренды
-        self.rentals_tree = ttk.Treeview(
-            self.frame,
-            columns=('ID', 'Автомобиль', 'Клиент', 'Дата начала', 'Дата окончания', 'Стоимость', 'Статус'),
-            show='headings'
-        )
-        self.rentals_tree.pack(fill='both', expand=True, padx=5, pady=5)
+        sep(card)
 
-        # Сортировка по заголовкам
-        for col in self.rentals_tree['columns']:
-            self.rentals_tree.heading(col, text=col, command=lambda c=col: self.sort_rentals_tree(c))
+        # строка 1: авто + клиент
+        row1 = ctk.CTkFrame(card, fg_color="transparent")
+        row1.pack(fill='x', padx=16)
+        row1.columnconfigure((0, 1), weight=1)
 
-        # Заголовки столбцов
-        for col in self.rentals_tree['columns']:
-            self.rentals_tree.heading(col, text=col)
-            self.rentals_tree.column(col, width=120)
+        col_car = ctk.CTkFrame(row1, fg_color="transparent")
+        col_car.grid(row=0, column=0, sticky='ew', padx=(0, 6))
+        label(col_car, "Автомобиль")
+        self.rental_car = ctk.CTkComboBox(col_car, **combo_kw)
+        self.rental_car.pack(fill='x')
+        self.rental_car.bind('<KeyRelease>', self._filter_cars)
+        self.rental_car.set('Выберите...')
 
-        # Привязка событий
+        col_cl = ctk.CTkFrame(row1, fg_color="transparent")
+        col_cl.grid(row=0, column=1, sticky='ew', padx=(6, 0))
+        label(col_cl, "Клиент")
+        self.rental_client = ctk.CTkComboBox(col_cl, **combo_kw)
+        self.rental_client.pack(fill='x')
+        self.rental_client.bind('<KeyRelease>', self._filter_clients)
+        self.rental_client.set('Выберите...')
+
+        # строка 2: даты + время
+        row2 = ctk.CTkFrame(card, fg_color="transparent")
+        row2.pack(fill='x', padx=16, pady=(0, 4))
+        row2.columnconfigure((0, 1), weight=1)
+
+        # Дата начала + время
+        col_start = ctk.CTkFrame(row2, fg_color="transparent")
+        col_start.grid(row=0, column=0, sticky='ew', padx=(0, 6))
+        label(col_start, "Дата и время начала")
+        start_inner = ctk.CTkFrame(col_start, fg_color="transparent")
+        start_inner.pack(fill='x')
+        self.rental_start_date = CTkDatePicker(start_inner, height=34)
+        self.rental_start_date.pack(side='left', fill='x', expand=True, padx=(0, 4))
+        self.rental_start_hour = ctk.CTkComboBox(
+            start_inner, values=[f'{h:02d}' for h in range(24)],
+            width=64, **combo_kw)
+        self.rental_start_hour.pack(side='left', padx=(0, 2))
+        self.rental_start_hour.set('10')
+        ctk.CTkLabel(start_inner, text=":", text_color=TEXT_PRI,
+                    font=ctk.CTkFont(size=14, weight="bold")).pack(side='left')
+        self.rental_start_minute = ctk.CTkComboBox(
+            start_inner, values=['00', '15', '30', '45'],
+            width=64, **combo_kw)
+        self.rental_start_minute.pack(side='left', padx=(2, 0))
+        self.rental_start_minute.set('00')
+
+        # Дата окончания
+        col_end = ctk.CTkFrame(row2, fg_color="transparent")
+        col_end.grid(row=0, column=1, sticky='ew', padx=(6, 0))
+        label(col_end, "Дата окончания (время = время начала)")
+        self.rental_end_date = CTkDatePicker(col_end, height=34)
+        self.rental_end_date.pack(fill='x')
+
+        # строка 3: стоимость
+        row3 = ctk.CTkFrame(card, fg_color="transparent")
+        row3.pack(fill='x', padx=16, pady=(0, 4))
+
+        col_cost = ctk.CTkFrame(row3, fg_color="transparent")
+        col_cost.pack(side='left', fill='x', expand=True, padx=(0, 8))
+        label(col_cost, "Стоимость (BYN)")
+        self.rental_cost = ctk.CTkEntry(col_cost, placeholder_text="0.00", **entry_kw)
+        self.rental_cost.pack(fill='x')
+
+        col_calc = ctk.CTkFrame(row3, fg_color="transparent")
+        col_calc.pack(side='left', padx=(0, 0))
+        ctk.CTkLabel(col_calc, text=" ", font=ctk.CTkFont(size=12)).pack(anchor='w', pady=(4, 2))
+        ctk.CTkButton(col_calc, text="Рассчитать стоимость", width=180,
+                    command=self.calculate_cost, **btn_sec).pack()
+
+        # кнопки
+        sep(card)
+        btns = ctk.CTkFrame(card, fg_color="transparent")
+        btns.pack(padx=16, pady=(0, 12), anchor='w')
+
+        ctk.CTkButton(btns, text="Создать аренду",   width=130, command=self.add_rental,      **btn_pri).pack(side='left', padx=(0, 6))
+        ctk.CTkButton(btns, text="Обновить аренду",  width=130, command=self.update_rental,    **btn_sec).pack(side='left', padx=6)
+        ctk.CTkButton(btns, text="Завершить аренду", width=140, command=self.complete_rental,  **btn_ok ).pack(side='left', padx=6)
+        ctk.CTkButton(btns, text="Отменить аренду",  width=130, command=self.cancel_rental,    **btn_del).pack(side='left', padx=6)
+        ctk.CTkButton(btns, text="Очистить",         width=100, command=self.clear_rental_form,**btn_sec).pack(side='left', padx=6)
+
+        # Таблица
+        tree_card = ctk.CTkFrame(self.frame, fg_color=BG_CARD, corner_radius=12)
+        tree_card.pack(fill='both', expand=True, padx=16, pady=(0, 12))
+
+        tree_wrap = tk.Frame(tree_card, bg=BG_CARD)
+        tree_wrap.pack(fill='both', expand=True, padx=8, pady=8)
+
+        cols = ('ID', 'Автомобиль', 'Клиент',
+                'Дата начала', 'Дата окончания', 'Стоимость', 'Статус')
+        self.rentals_tree = ttk.Treeview(tree_wrap, columns=cols, show='headings')
+        self.rentals_tree.pack(fill='both', expand=True, side='left')
+
+        widths = {'ID': 45, 'Стоимость': 90, 'Статус': 110,
+                'Дата начала': 130, 'Дата окончания': 130}
+        for col in cols:
+            self.rentals_tree.heading(col, text=col,
+                                    command=lambda c=col: self.sort_rentals_tree(c))
+            self.rentals_tree.column(col, width=widths.get(col, 160), minwidth=50)
+
+        sb = ttk.Scrollbar(tree_wrap, orient='vertical', command=self.rentals_tree.yview)
+        sb.pack(side='right', fill='y')
+        self.rentals_tree.configure(yscrollcommand=sb.set)
         self.rentals_tree.bind('<ButtonRelease-1>', self._on_rental_select)
+        self.rentals_tree.bind('<MouseWheel>', lambda e:
+            self.rentals_tree.yview_scroll(int(-1*(e.delta/120)), 'units'))
 
     # --- Комбобоксы ---
 
     def load_rental_combos(self):
         """Загрузка данных для комбобоксов"""
         cars = self.cars_repo.get_all()
-        self.rental_car['values'] = [f"{c.id} - {c.brand} {c.model} ({c.license_plate})" for c in cars]
+        self.rental_car.configure(values = [f"{c.id} - {c.brand} {c.model} ({c.license_plate})" for c in cars])
 
         clients = self.clients_repo.get_all()
-        self.rental_client['values'] = [f"{cl.id} - {cl.full_name}" for cl in clients]
+        self.rental_client.configure(values = [f"{cl.id} - {cl.full_name}" for cl in clients])
 
     def _filter_cars(self, event):
         """Фильтрация автомобилей при вводе"""
@@ -125,7 +207,7 @@ class RentalsTab:
             self.load_rental_combos()
             return
         cars = self.cars_repo.filter_all(typed)
-        self.rental_car['values'] = [f"{c.id} - {c.brand} {c.model} ({c.license_plate})" for c in cars]
+        self.rental_car.configure(values = [f"{c.id} - {c.brand} {c.model} ({c.license_plate})" for c in cars])
 
     def _filter_clients(self, event):
         """Фильтрация клиентов при вводе"""
@@ -134,7 +216,7 @@ class RentalsTab:
             self.load_rental_combos()
             return
         clients = self.clients_repo.filter_by_name(typed)
-        self.rental_client['values'] = [f"{cl.id} - {cl.full_name}" for cl in clients]
+        self.rental_client.configure(values = [f"{cl.id} - {cl.full_name}" for cl in clients])
 
     # --- CRUD аренды ---
 
@@ -311,13 +393,13 @@ class RentalsTab:
 
     def clear_rental_form(self):
         """Очистка формы аренды"""
-        self.rental_car.set('')
-        self.rental_client.set('')
+        self.rental_car.set('Выберите...')
+        self.rental_client.set('Выберите...')
         self.rental_start_date.set_date(datetime.now())
         self.rental_start_hour.set('10')
         self.rental_start_minute.set('00')
         self.rental_end_date.set_date(datetime.now())
-        self.rental_cost.delete(0, tk.END)
+        self.rental_cost.delete(0, 'end')
 
     def _on_rental_select(self, event):
         """Обработка выбора аренды"""
@@ -338,7 +420,7 @@ class RentalsTab:
         self.rental_start_hour.set(hour_part)
         self.rental_start_minute.set(minute_part)
         self.rental_end_date.set_date(datetime.strptime(rental.end_date.split(' ')[0], '%Y-%m-%d'))
-        self.rental_cost.delete(0, tk.END)
+        self.rental_cost.delete(0, 'end')
         self.rental_cost.insert(0, f"{rental.total_cost:.2f}")
 
     def sort_rentals_tree(self, col):
