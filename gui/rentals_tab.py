@@ -94,7 +94,7 @@ class RentalsTab:
         self.rental_car = ctk.CTkComboBox(col_car, **combo_kw)
         self.rental_car.pack(fill='x')
         self.rental_car.bind('<KeyRelease>', self._filter_cars)
-        self.rental_car.set('Выберите...')
+        self._setup_combo_placeholder(self.rental_car)
 
         col_cl = ctk.CTkFrame(row1, fg_color="transparent")
         col_cl.grid(row=0, column=1, sticky='ew', padx=(6, 0))
@@ -102,7 +102,7 @@ class RentalsTab:
         self.rental_client = ctk.CTkComboBox(col_cl, **combo_kw)
         self.rental_client.pack(fill='x')
         self.rental_client.bind('<KeyRelease>', self._filter_clients)
-        self.rental_client.set('Выберите...')
+        self._setup_combo_placeholder(self.rental_client)
 
         # строка 2: даты + время
         row2 = ctk.CTkFrame(card, fg_color="transparent")
@@ -192,6 +192,27 @@ class RentalsTab:
 
     # --- Комбобоксы ---
 
+    def _setup_combo_placeholder(self, combo, placeholder='Выберите...'):
+        combo.set(placeholder)
+        combo.configure(text_color=TEXT_SEC)
+
+        def on_focus_in(event):
+            if combo.get() == placeholder:
+                combo.set('')
+                combo.configure(text_color=TEXT_PRI)
+
+        def on_focus_out(event):
+            if combo.get().strip() == '':
+                combo.set(placeholder)
+                combo.configure(text_color=TEXT_SEC)
+
+        def on_select(value):
+            combo.configure(text_color=TEXT_PRI)
+
+        combo.configure(command=on_select)
+        combo._entry.bind('<FocusIn>',  on_focus_in)
+        combo._entry.bind('<FocusOut>', on_focus_out)
+        
     def load_rental_combos(self):
         """Загрузка данных для комбобоксов"""
         cars = self.cars_repo.get_all()
@@ -394,7 +415,9 @@ class RentalsTab:
     def clear_rental_form(self):
         """Очистка формы аренды"""
         self.rental_car.set('Выберите...')
+        self.rental_car.configure(text_color=TEXT_SEC)
         self.rental_client.set('Выберите...')
+        self.rental_client.configure(text_color=TEXT_SEC)
         self.rental_start_date.set_date(datetime.now())
         self.rental_start_hour.set('10')
         self.rental_start_minute.set('00')
