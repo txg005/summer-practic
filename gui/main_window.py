@@ -9,7 +9,7 @@ from gui.clients_tab import ClientsTab
 from gui.rentals_tab import RentalsTab
 from gui.reports_tab import ReportsTab
 
-# ── Цветовая схема ────────────────────────────────────────────────
+# Цветовая схема
 BG_MAIN  = "#1a1a1a"
 BG_CARD  = "#242424"
 BG_NAV   = "#111111"
@@ -38,7 +38,7 @@ def _apply_ttk_dark_style():
     st.configure("TButton",            background="#333333",  foreground=TEXT_PRI, bordercolor=BORDER)
     st.map("TButton",                  background=[("active", ACCENT)])
     st.configure("Treeview",           background="#1e1e1e",  foreground=TEXT_PRI,
-                                       fieldbackground="#1e1e1e", rowheight=28)
+                                       fieldbackground="#1e1e1e", rowheight=32)
     st.configure("Treeview.Heading",   background="#2d2d2d",  foreground=ACCENT,
                                        relief="flat")
     st.map("Treeview",
@@ -76,7 +76,7 @@ class MainWindow:
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-    # ── Навигация ─────────────────────────────────────────────────
+    # Навигация
     def _build_nav(self):
         nav = tk.Frame(self.root, bg=BG_NAV, height=54)
         nav.pack(fill='x', side='top')
@@ -138,7 +138,7 @@ class MainWindow:
         w = btn.winfo_width()
         self._indicator.place(x=x + 4, y=52, width=w - 8)
 
-    # ── Контент ───────────────────────────────────────────────────
+    # Контент
     def _build_content(self):
         self._content = tk.Frame(self.root, bg=BG_MAIN)
         self._content.pack(fill='both', expand=True)

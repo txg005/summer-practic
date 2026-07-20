@@ -119,6 +119,8 @@ class ClientsTab:
         cols = ('ID', 'ФИО', 'Водительские права', 'Телефон', 'Email')
         self.clients_tree = ttk.Treeview(tree_wrap, columns=cols, show='headings')
         self.clients_tree.pack(fill='both', expand=True, side='left')
+        self.clients_tree.tag_configure('odd',  background='#1e1e1e')
+        self.clients_tree.tag_configure('even', background='#252525')
 
         widths = {'ID': 45, 'Водительские права': 140, 'Телефон': 150}
         for col in cols:
@@ -308,8 +310,9 @@ class ClientsTab:
         """Загрузка списка клиентов"""
         for item in self.clients_tree.get_children():
             self.clients_tree.delete(item)
-        for client in self.clients_repo.get_all():
-            self.clients_tree.insert('', 'end', values=astuple(client))
+        for i, client in enumerate(self.clients_repo.get_all()):
+            tag = 'even' if i % 2 == 0 else 'odd'
+            self.clients_tree.insert('', 'end', values=astuple(client), tags=(tag,))
 
     def _on_phone_focus_in(self, event):
         if not self.client_phone.get():

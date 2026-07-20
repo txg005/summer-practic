@@ -165,16 +165,58 @@ class RentalsTab:
         ctk.CTkButton(btns, text="Очистить",         width=100, command=self.clear_rental_form,**btn_sec).pack(side='left', padx=6)
 
         # Таблица
+        style = ttk.Style()
+        if "clam" in style.theme_names():
+            style.theme_use("clam")
+
+        style.layout("Treeview", [('Treeview.treearea', {'sticky': 'nswe'})])
+
+        style.configure("Treeview",
+                        background=BG_CARD,
+                        fieldbackground=BG_CARD,
+                        foreground=TEXT_PRI,
+                        borderwidth=0,
+                        relief="flat",
+                        rowheight=34)
+
+        # Подсветка выбранной строки оранжевым
+        style.map("Treeview",
+                  background=[('selected', ACCENT)],
+                  foreground=[('selected', '#ffffff')])
+
+        # Заголовки таблицы
+        style.configure("Treeview.Heading",
+                        background="#22222e",
+                        foreground=ACCENT,
+                        font=("Segoe UI", 10, "bold"),
+                        borderwidth=0,
+                        relief="flat")
+
+        # Сохраняем оранжевый цвет заголовков при наведении мышкой
+        style.map("Treeview.Heading",
+                  background=[('active', '#2c2c3b')],
+                  foreground=[('active', ACCENT)])
+
+        # --- КОНТЕЙНЕР ТАБЛИЦЫ И СКРОЛЛБАР ---
         tree_card = ctk.CTkFrame(self.frame, fg_color=BG_CARD, corner_radius=12)
         tree_card.pack(fill='both', expand=True, padx=16, pady=(0, 12))
 
-        tree_wrap = tk.Frame(tree_card, bg=BG_CARD)
-        tree_wrap.pack(fill='both', expand=True, padx=8, pady=8)
+        tree_wrap = ctk.CTkFrame(tree_card, fg_color="transparent")
+        tree_wrap.pack(fill='both', expand=True, padx=10, pady=10)
 
         cols = ('ID', 'Автомобиль', 'Клиент',
                 'Дата начала', 'Дата окончания', 'Стоимость', 'Статус')
-        self.rentals_tree = ttk.Treeview(tree_wrap, columns=cols, show='headings')
+        
+        self.rentals_tree = ttk.Treeview(tree_wrap, columns=cols, show='headings', style="Treeview")
         self.rentals_tree.pack(fill='both', expand=True, side='left')
+
+        # Цвета чередования строк
+        self.rentals_tree.tag_configure('odd',         background='#1e1e1e')
+        self.rentals_tree.tag_configure('even',        background='#252525')
+        self.rentals_tree.tag_configure('active',      foreground='#4CAF50')
+        self.rentals_tree.tag_configure('booked',      foreground='#FF8C00')
+        self.rentals_tree.tag_configure('completed',   foreground='#888888')
+        self.rentals_tree.tag_configure('cancelled',   foreground='#e74c3c')
 
         widths = {'ID': 45, 'Стоимость': 90, 'Статус': 110,
                 'Дата начала': 130, 'Дата окончания': 130}
@@ -183,9 +225,19 @@ class RentalsTab:
                                     command=lambda c=col: self.sort_rentals_tree(c))
             self.rentals_tree.column(col, width=widths.get(col, 160), minwidth=50)
 
-        sb = ttk.Scrollbar(tree_wrap, orient='vertical', command=self.rentals_tree.yview)
-        sb.pack(side='right', fill='y')
+        # Кастомный плоский скроллбар CustomTkinter
+        sb = ctk.CTkScrollbar(tree_wrap, 
+                              orientation='vertical', 
+                              command=self.rentals_tree.yview,
+                              fg_color="transparent",
+                              button_color=BORDER,
+                              button_hover_color=ACCENT,
+                              )
+        
+        sb.pack(side='right', fill='y', padx=(6, 0))
         self.rentals_tree.configure(yscrollcommand=sb.set)
+
+        # Бинды событий
         self.rentals_tree.bind('<ButtonRelease-1>', self._on_rental_select)
         self.rentals_tree.bind('<MouseWheel>', lambda e:
             self.rentals_tree.yview_scroll(int(-1*(e.delta/120)), 'units'))
@@ -423,6 +475,7 @@ class RentalsTab:
         self.rental_start_minute.set('00')
         self.rental_end_date.set_date(datetime.now())
         self.rental_cost.delete(0, 'end')
+        self.rental_cost.configure(placeholder_text="0.00")
 
     def _on_rental_select(self, event):
         """Обработка выбора аренды"""
@@ -445,6 +498,8 @@ class RentalsTab:
         self.rental_end_date.set_date(datetime.strptime(rental.end_date.split(' ')[0], '%Y-%m-%d'))
         self.rental_cost.delete(0, 'end')
         self.rental_cost.insert(0, f"{rental.total_cost:.2f}")
+        self.rental_car.configure(text_color=TEXT_PRI)
+        self.rental_client.configure(text_color=TEXT_PRI)
 
     def sort_rentals_tree(self, col):
         """Сортировка таблицы аренды с реверсом"""
@@ -515,8 +570,17 @@ class RentalsTab:
             self.rentals_tree.heading(c, text=text)
 
     def load_rentals(self):
-        """Загрузка списка аренды"""
         for item in self.rentals_tree.get_children():
             self.rentals_tree.delete(item)
-        for rental in self.rentals_repo.get_all_with_details():
-            self.rentals_tree.insert('', 'end', values=astuple(rental))
+
+        STATUS_TAG = {
+            'активная':     'active',
+            'забронировано':'booked',
+            'завершенная':  'completed',
+            'отменена':     'cancelled',
+        }
+        for i, rental in enumerate(self.rentals_repo.get_all_with_details()):
+            row_tag   = 'even' if i % 2 == 0 else 'odd'
+            status_tag = STATUS_TAG.get(rental.status, '')
+            self.rentals_tree.insert('', 'end', values=astuple(rental),
+                                    tags=(row_tag, status_tag))
