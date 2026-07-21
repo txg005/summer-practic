@@ -128,12 +128,28 @@ class ClientsTab:
                                     command=lambda c=col: self.sort_clients_tree(c))
             self.clients_tree.column(col, width=widths.get(col, 200), minwidth=50)
 
-        sb = ttk.Scrollbar(tree_wrap, orient='vertical', command=self.clients_tree.yview)
-        sb.pack(side='right', fill='y')
+        # Кастомный плоский скроллбар CustomTkinter
+        sb = ctk.CTkScrollbar(tree_wrap, 
+                              orientation='vertical', 
+                              command=self.clients_tree.yview,
+                              fg_color="transparent",
+                              button_color=BORDER,
+                              button_hover_color="#a0a0a0",
+                              )
+        
+        sb.pack(side='right', fill='y', padx=(6, 0))
         self.clients_tree.configure(yscrollcommand=sb.set)
+
+        # Бинды событий
         self.clients_tree.bind('<ButtonRelease-1>', self.on_client_select)
         self.clients_tree.bind('<MouseWheel>', lambda e:
             self.clients_tree.yview_scroll(int(-1*(e.delta/120)), 'units'))
+
+        self.clients_tree.column('ID',                  anchor='center', width=10)
+        self.clients_tree.column('ФИО')
+        self.clients_tree.column('Водительские права',  anchor='center')
+        self.clients_tree.column('Телефон',             anchor='center')
+        self.clients_tree.column('Email',               width=80)
 
     def add_client(self):
         """Добавление клиента"""
@@ -225,7 +241,7 @@ class ClientsTab:
                 messagebox.showinfo("Успех", "Клиент удален!")
 
             except Exception as e:
-                messagebox.showerror("Ошибка", f"Ошибка при удалении: {str(e)}")
+                messagebox.showerror("Ошибка", f"Ошибка при удалении: {str(e)}") 
 
     def clear_client_form(self):
         """Очистка формы клиента"""
@@ -280,6 +296,24 @@ class ClientsTab:
                 text += ' ▼' if self.sort_reverse else ' ▲'
             self.clients_tree.heading(c, text=text)
 
+        self._recolor_rows() 
+
+    def _recolor_rows(self):
+            """Восстанавливает правильное чередование цветов строк после сортировки"""
+            for index, item in enumerate(self.clients_tree.get_children()):
+                # Получаем список текущих тегов строки (чтобы не удалить теги статуса)
+                tags = list(self.clients_tree.item(item, 'tags'))
+                
+                # Удаляем старые теги четности, если они есть
+                if 'even' in tags: tags.remove('even')
+                if 'odd' in tags:  tags.remove('odd')
+                
+                # Добавляем правильный тег в зависимости от нового порядкового номера
+                tags.append('even' if index % 2 == 0 else 'odd')
+                
+                # Применяем обновленные теги обратно к строке
+                self.clients_tree.item(item, tags=tags)
+
     def search_clients(self):
         """Поиск клиентов"""
         name = self.client_name.get().strip()
@@ -295,6 +329,8 @@ class ClientsTab:
             for client in clients:
                 self.clients_tree.insert('', 'end', values=astuple(client))
 
+            self._recolor_rows()
+            
         except Exception as e:
             messagebox.showerror("Ошибка", f"Ошибка поиска: {str(e)}")
             self.load_clients()

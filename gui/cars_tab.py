@@ -144,15 +144,28 @@ class CarsTab:
         self.cars_tree = ttk.Treeview(tree_wrap, columns=cols, show='headings')
         self.cars_tree.pack(fill='both', expand=True, side='left')
 
+        self.cars_tree.tag_configure('odd',         background='#1e1e1e')
+        self.cars_tree.tag_configure('even',        background='#252525')
+
         widths = {'ID': 45, 'Год': 60, 'Цена/день': 95, 'Статус': 100, 'Последнее ТО': 110}
         for col in cols:
             self.cars_tree.heading(col, text=col,
                                 command=lambda c=col: self.sort_cars_tree(c))
-            self.cars_tree.column(col, width=widths.get(col, 110), minwidth=50)
+            self.cars_tree.column(col, width=widths.get(col, 110), minwidth=50, anchor='center')
 
-        sb = ttk.Scrollbar(tree_wrap, orient='vertical', command=self.cars_tree.yview)
-        sb.pack(side='right', fill='y')
+        # Кастомный плоский скроллбар CustomTkinter
+        sb = ctk.CTkScrollbar(tree_wrap, 
+                              orientation='vertical', 
+                              command=self.cars_tree.yview,
+                              fg_color="transparent",
+                              button_color=BORDER,
+                              button_hover_color="#a0a0a0",
+                              )
+        
+        sb.pack(side='right', fill='y', padx=(6, 0))
         self.cars_tree.configure(yscrollcommand=sb.set)
+
+        # Бинды событий
         self.cars_tree.bind('<ButtonRelease-1>', self.on_car_select)
         self.cars_tree.bind('<MouseWheel>', lambda e:
             self.cars_tree.yview_scroll(int(-1*(e.delta/120)), 'units'))
@@ -342,6 +355,19 @@ class CarsTab:
                 text += ' ▼' if self.sort_reverse else ' ▲'
             self.cars_tree.heading(c, text=text)
 
+        self._recolor_rows()    
+
+    def _recolor_rows(self):
+            """Восстанавливает правильное чередование цветов строк после сортировки"""
+            for index, item in enumerate(self.cars_tree.get_children()):
+                tags = list(self.cars_tree.item(item, 'tags'))
+                
+                if 'even' in tags: tags.remove('even')
+                if 'odd' in tags:  tags.remove('odd')
+                
+                tags.append('even' if index % 2 == 0 else 'odd')
+                self.cars_tree.item(item, tags=tags)
+
     def search_cars(self):
         """Поиск автомобилей"""
         brand = self.car_brand.get().strip()
@@ -359,6 +385,8 @@ class CarsTab:
                 self.cars_tree.delete(item)
             for car in cars:
                 self.cars_tree.insert('', 'end', values=astuple(car))
+            
+            self._recolor_rows()
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Ошибка поиска: {str(e)}")
@@ -377,5 +405,6 @@ class CarsTab:
         for item in self.cars_tree.get_children():
             self.cars_tree.delete(item)
 
-        for car in self.cars_repo.get_all():
-            self.cars_tree.insert('', 'end', values=astuple(car))
+        for i, car in enumerate(self.cars_repo.get_all()):
+            tag = 'even' if i % 2 == 0 else 'odd'
+            self.cars_tree.insert('', 'end', values=astuple(car), tags=(tag,))

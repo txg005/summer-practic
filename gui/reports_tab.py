@@ -61,11 +61,18 @@ class ReportsTab:
         paned.pack(fill='both', expand=True, padx=16, pady=(0, 12))
 
         # Текстовый отчёт
-        text_outer = tk.Frame(paned, bg=BG_CARD)
+        text_outer = tk.Frame(paned, bg="white")
         paned.add(text_outer, minsize=60, stretch='always')
 
-        text_scroll = ttk.Scrollbar(text_outer, orient='vertical')
-        text_scroll.pack(side='right', fill='y')
+        text_scroll = ctk.CTkScrollbar(
+            text_outer, 
+            orientation='vertical',
+            fg_color="transparent",
+            button_color="#d0d0d0",
+            button_hover_color="#a0a0a0"
+        )
+        text_scroll.pack(side='right', fill='y', padx=(6, 0))
+
         self.report_text = tk.Text(
             text_outer, wrap='word',
             bg="white", fg="black",
@@ -73,7 +80,8 @@ class ReportsTab:
             font=("Consolas", 10), relief='flat', bd=8,
             yscrollcommand=text_scroll.set)
         self.report_text.pack(fill='both', expand=True)
-        text_scroll.config(command=self.report_text.yview)
+
+        text_scroll.configure(command=self.report_text.yview)
         self.report_text.bind('<MouseWheel>',
             lambda e: self.report_text.yview_scroll(int(-1*(e.delta/120)), 'units'))
 
@@ -81,13 +89,21 @@ class ReportsTab:
         charts_outer = tk.Frame(paned, bg="white")
         paned.add(charts_outer, minsize=60, stretch='always')
 
-        charts_vscroll = ttk.Scrollbar(charts_outer, orient='vertical')
-        charts_vscroll.pack(side='right', fill='y')
+        charts_vscroll = ctk.CTkScrollbar(
+            charts_outer, 
+            orientation='vertical',
+            fg_color="transparent",
+            button_color="#d0d0d0",
+            button_hover_color="#a0a0a0"
+        )
+        charts_vscroll.pack(side='right', fill='y', padx=(6, 0))
+
         self.charts_scroll_canvas = tk.Canvas(
             charts_outer, bg="white", highlightthickness=0,
             yscrollcommand=charts_vscroll.set)
         self.charts_scroll_canvas.pack(side='left', fill='both', expand=True)
-        charts_vscroll.config(command=self.charts_scroll_canvas.yview)
+
+        charts_vscroll.configure(command=self.charts_scroll_canvas.yview)
 
         self.charts_inner = tk.Frame(self.charts_scroll_canvas, bg="white")
         self._charts_win = self.charts_scroll_canvas.create_window(
@@ -98,7 +114,7 @@ class ReportsTab:
                 scrollregion=self.charts_scroll_canvas.bbox('all')))
         self.charts_scroll_canvas.bind('<Configure>', lambda e:
             self.charts_scroll_canvas.itemconfig(self._charts_win, width=e.width))
-
+        
         def _wheel(e):
             self.charts_scroll_canvas.yview_scroll(int(-1*(e.delta/120)), 'units')
         self.charts_scroll_canvas.bind('<MouseWheel>', _wheel)

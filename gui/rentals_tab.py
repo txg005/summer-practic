@@ -186,7 +186,7 @@ class RentalsTab:
 
         # Заголовки таблицы
         style.configure("Treeview.Heading",
-                        background="#22222e",
+                        bg=BG_CARD,
                         foreground=ACCENT,
                         font=("Segoe UI", 10, "bold"),
                         borderwidth=0,
@@ -231,7 +231,7 @@ class RentalsTab:
                               command=self.rentals_tree.yview,
                               fg_color="transparent",
                               button_color=BORDER,
-                              button_hover_color=ACCENT,
+                              button_hover_color="#a0a0a0",
                               )
         
         sb.pack(side='right', fill='y', padx=(6, 0))
@@ -241,6 +241,13 @@ class RentalsTab:
         self.rentals_tree.bind('<ButtonRelease-1>', self._on_rental_select)
         self.rentals_tree.bind('<MouseWheel>', lambda e:
             self.rentals_tree.yview_scroll(int(-1*(e.delta/120)), 'units'))
+
+        # выравнивание
+        self.rentals_tree.column('ID',             anchor='center', width=10)
+        self.rentals_tree.column('Дата начала',    anchor='center')
+        self.rentals_tree.column('Дата окончания', anchor='center')
+        self.rentals_tree.column('Стоимость',      anchor='center')
+        self.rentals_tree.column('Статус',         anchor='center', width=160)
 
     # --- Комбобоксы ---
 
@@ -537,6 +544,25 @@ class RentalsTab:
                 text += ' ▼' if self.sort_reverse else ' ▲'
             self.rentals_tree.heading(c, text=text)
 
+        # перекрашиваем строки после изменения их порядка
+        self._recolor_rows()    
+
+    def _recolor_rows(self):
+            """Восстанавливает правильное чередование цветов строк после сортировки"""
+            for index, item in enumerate(self.rentals_tree.get_children()):
+                # Получаем список текущих тегов строки (чтобы не удалить теги статуса)
+                tags = list(self.rentals_tree.item(item, 'tags'))
+                
+                # Удаляем старые теги четности, если они есть
+                if 'even' in tags: tags.remove('even')
+                if 'odd' in tags:  tags.remove('odd')
+                
+                # Добавляем правильный тег в зависимости от нового порядкового номера
+                tags.append('even' if index % 2 == 0 else 'odd')
+                
+                # Применяем обновленные теги обратно к строке
+                self.rentals_tree.item(item, tags=tags)
+
     def search_rentals(self):
         start_date = self.rental_start_date.get().strip()
         end_date = self.rental_end_date.get().strip()
@@ -558,6 +584,9 @@ class RentalsTab:
                 self.rentals_tree.delete(item)
             for rental in rentals:
                 self.rentals_tree.insert('', 'end', values=astuple(rental))
+
+            self._recolor_rows()
+
         except Exception as e:
             messagebox.showerror("Ошибка", f"Ошибка поиска: {str(e)}")
             self.load_rentals()
