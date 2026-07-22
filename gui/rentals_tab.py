@@ -567,11 +567,15 @@ class RentalsTab:
         start_date = self.rental_start_date.get().strip()
         end_date = self.rental_end_date.get().strip()
 
-        car_raw = self.rental_car.get().strip()
-        car_search = car_raw.split(' - ', 1)[1] if ' - ' in car_raw else car_raw
+        car_raw    = self.rental_car.get().strip()
+        car_search = ''
+        if car_raw and car_raw != 'Выберите...':
+            car_search = car_raw.split(' - ', 1)[1] if ' - ' in car_raw else car_raw
 
-        client_raw = self.rental_client.get().strip()
-        client_search = client_raw.split(' - ', 1)[1] if ' - ' in client_raw else client_raw
+        client_raw    = self.rental_client.get().strip()
+        client_search = ''
+        if client_raw and client_raw != 'Выберите...':
+            client_search = client_raw.split(' - ', 1)[1] if ' - ' in client_raw else client_raw
 
         cost = self.rental_cost.get().strip()
 
@@ -580,10 +584,21 @@ class RentalsTab:
                 start_date=start_date, end_date=end_date,
                 car_text=car_search, client_text=client_search, cost=cost
             )
+
+            STATUS_TAG = {
+                'активная':     'active',
+                'забронировано':'booked',
+                'завершенная':  'completed',
+                'отменена':     'cancelled',
+            }
+
             for item in self.rentals_tree.get_children():
                 self.rentals_tree.delete(item)
-            for rental in rentals:
-                self.rentals_tree.insert('', 'end', values=astuple(rental))
+                
+            for i, rental in enumerate(rentals):
+                row_tag = 'even' if i % 2 == 0 else 'odd'
+                status_tag = STATUS_TAG.get(rental.status, '')
+                self.rentals_tree.insert('', 'end', values=astuple(rental), tags=(row_tag, status_tag))
 
             self._recolor_rows()
 
