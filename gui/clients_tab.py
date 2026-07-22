@@ -7,9 +7,10 @@ import customtkinter as ctk
 from gui.theme import (BG_MAIN, BG_CARD, BG_INPUT, ACCENT, ACCENT_HOVER,
                        TEXT_PRI, TEXT_SEC, BORDER, BTN_SEC, BTN_SEC_HVR,
                        BTN_DEL, BTN_DEL_HVR)
+from gui.ctk_phone_picker import CTkPhonePicker
 
 from database import Client, ClientsRepository
-from utils import validate_belarusian_phone, validate_driver_license
+from utils import validate_driver_license
 from utils import Tooltip
 
 
@@ -89,10 +90,8 @@ class ClientsTab:
         row2.columnconfigure((0, 1), weight=1)
 
         f = field(row2, "Телефон", 0, padright=6)
-        self.client_phone = ctk.CTkEntry(f, placeholder_text="+375 29 000-00-00", **entry_kw)
+        self.client_phone = CTkPhonePicker(f, height=34)
         self.client_phone.pack(fill='x')
-        self.client_phone.bind('<FocusIn>',   self._on_phone_focus_in)
-        self.client_phone.bind('<KeyRelease>', self._format_phone)
 
         f = field(row2, "Email", 1, padleft=6)
         self.client_email = ctk.CTkEntry(f, placeholder_text="example@mail.com", **entry_kw)
@@ -164,8 +163,8 @@ class ClientsTab:
                 messagebox.showerror("Ошибка", "Все поля должны быть заполнены!")
                 return
 
-            if not validate_belarusian_phone(phone):
-                messagebox.showerror("Ошибка", "Неверный формат телефона! Пример: +375 29 123-45-67")
+            if not phone:
+                messagebox.showerror("Ошибка", "Введите номер телефона!")
                 return
 
             if not validate_driver_license(license_num):
@@ -207,8 +206,8 @@ class ClientsTab:
                 messagebox.showerror("Ошибка", "Все поля должны быть заполнены!")
                 return
 
-            if not validate_belarusian_phone(phone):
-                messagebox.showerror("Ошибка", "Неверный формат телефона! Пример: +375 29 123-45-67")
+            if not phone:
+                messagebox.showerror("Ошибка", "Введите номер телефона!")
                 return
 
             if not validate_driver_license(license_num):
@@ -247,7 +246,7 @@ class ClientsTab:
         """Очистка формы клиента"""
         self.client_name.delete(0, 'end')
         self.client_license.delete(0, 'end')
-        self.client_phone.delete(0, 'end')
+        self.client_phone.reset()
         self.client_email.delete(0, 'end')
 
     def on_client_select(self, event):
@@ -259,8 +258,7 @@ class ClientsTab:
             self.client_name.insert(0, values[1])
             self.client_license.delete(0, 'end')
             self.client_license.insert(0, values[2])
-            self.client_phone.delete(0, 'end')
-            self.client_phone.insert(0, values[3])
+            self.client_phone.set_phone(values[3])
             self.client_email.delete(0, 'end')
             self.client_email.insert(0, values[4])
 
@@ -349,24 +347,3 @@ class ClientsTab:
         for i, client in enumerate(self.clients_repo.get_all()):
             tag = 'even' if i % 2 == 0 else 'odd'
             self.clients_tree.insert('', 'end', values=astuple(client), tags=(tag,))
-
-    def _on_phone_focus_in(self, event):
-        if not self.client_phone.get():
-            self.client_phone.insert(0, '+375 ')
-
-    def _format_phone(self, event):
-        if event.keysym in ('Tab', 'Return', 'Escape', 'Left', 'Right',
-                            'Home', 'End', 'Shift_L', 'Shift_R', 'Control_L', 'Control_R'):
-            return
-        digits = ''.join(c for c in self.client_phone.get() if c.isdigit())
-        if digits.startswith('375'):
-            digits = digits[3:]
-        digits = digits[:9]
-        result = '+375'
-        if digits:        result += ' ' + digits[:2]
-        if len(digits) > 2: result += ' ' + digits[2:5]
-        if len(digits) > 5: result += '-' + digits[5:7]
-        if len(digits) > 7: result += '-' + digits[7:9]
-        self.client_phone.delete(0, tk.END)
-        self.client_phone.insert(0, result)
-        self.client_phone.icursor(len(result))
